@@ -551,9 +551,14 @@ app.get("/studentsToday", (req, res) => {
   //to be changed for the dashboard
   database
     .select("*")
-    .from("students")
+    .from("students_biodata")
 
-    .join("student_signin", "students.stu_id", "=", "student_signin.stu_id")
+    .join(
+      "student_signin",
+      "students_biodata.stdno",
+      "=",
+      "student_signin.stu_id"
+    )
     .join("users", "student_signin.signed_in_by", "=", "users.id")
     // .where("students.stu_id", "=", studentNo)
     .andWhere("student_signin.signin_date", "=", date)
@@ -588,7 +593,7 @@ app.get("/visitorData", (req, res) => {
     .then((data) => {
       data.map((item) => {
         const d2 = new Date(item.date);
-        const date2 = ` ${d2.getFullYear()}-0${
+        const date2 = ` ${d2.getFullYear()}-${
           d2.getMonth() + 1
         }-${d2.getDate()}`;
         item.date = date2;
@@ -890,27 +895,45 @@ app.get("/allstudentdetails/:studentNo", (req, res) => {
   //to be changed for the dashboard
   database
     .select("*")
-    .from("students")
+    .from("students_biodata")
 
-    .join("student_signin", "students.stu_id", "=", "student_signin.stu_id")
+    .join(
+      "student_signin",
+      "students_biodata.stdno",
+      "=",
+      "student_signin.stu_id"
+    )
 
-    .where("students.stu_id", "=", studentNo)
+    .where("students_biodata.stdno", "=", studentNo)
     .andWhere("student_signin.signin_date", "=", date)
 
     .then((data) => {
       // res.send(data3);
       database
         .select("*")
-        .from("students")
+        .from("students_biodata")
 
-        .join("stu_signin", "students.stu_id", "=", "stu_signin.stu_id")
+        .join("stu_signin", "students_biodata.stdno", "=", "stu_signin.stu_id")
         // .join("users", "stu_signin.signin_user_id", "=", "users.id")
         // .join("assigned_gates", "users.id", "=", "assigned_gates.user_id")
-        .where("students.stu_id", "=", studentNo)
+        .where("students_biodata.stdno", "=", studentNo)
         .andWhere("stu_signin.signin_date", "=", date)
         .then((data3) => {
+          var m1 = moment(`${data3[0].signin_time}`, "h:mm");
+          const date5 = new Date(m1);
+          var m2 = null;
+
+          if (data3[0].signout_time) {
+            m2 = moment(`${data3[0].signout_time}`, "h:mm");
+          }
+          const date6 = new Date(m2);
           res.send([
             ...data3,
+            // {
+            //   // modifiedSigninTime: date5.toLocaleTimeString(),
+            //   // modifiedSignoutTime: m2 ? date6.toLocaleTimeString() : null,
+            // },
+
             {
               imageUrl: data3[0]
                 ? `http://${baseIp}:${port}/assets/${data3[0].image}`
