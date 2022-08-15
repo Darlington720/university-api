@@ -45,9 +45,11 @@ const data = [
   "students_biodata",
   "students_signin_book",
   "visitors",
+  "staff_signin",
   "non_teaching_staff",
   "stu_signin",
   "constraints",
+  "staff",
   "timetable",
   "lectures",
   "course_units",
@@ -1210,6 +1212,154 @@ app.get("/student/:studentNo", (req, res) => {
   //   });
 });
 
+app.get("/staff/:staffNo", (req, res) => {
+  const { staffNo } = req.params;
+  const userId = 1;
+  console.log("staff number", staffNo);
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  // database
+  //   .select("*")
+  //   .from("stu_signin")
+  //   .join("students", "stu_signin.stu_id", "=", "students.stu_id")
+
+  // database
+  //   .select("*")
+  //   .from("staff")
+
+  //   .join(
+  //     "staff_signin",
+  //     "staff.staff_id",
+  //     "=",
+  //     "staff_signin.staff_id"
+  //   )
+
+  //   .where("staff.staff_id", "=", staffNo)
+  //   .andWhere("staff_signin.signin_date", "=", date)
+
+  //   .then((data2) => {
+  // res.send(data3);
+
+  database
+    .select("*")
+    .from("staff")
+
+    .join(
+      "staff_signin_details",
+      "staff.staff_id",
+      "=",
+      "staff_signin_details.staff_id"
+    )
+
+    .where("staff.staff_id", "=", staffNo)
+    .andWhere("staff_signin_details.signin_date", "=", date)
+
+    .then((data3) => {
+      if (data3.length > 0) {
+        // res.send(data3);
+        if (data3[data3.length - 1].signout_time !== null) {
+          // res.send("Already registered");
+          database
+            .select("*")
+            .from("staff")
+            // .join("finance", "students.stu_id", "=", "finance.stu_no")
+            .where({
+              staff_id: `${staffNo}`,
+            })
+            .then((data2) => {
+              res.send([
+                ...data2,
+                {
+                  todaysStatus: "not new",
+                  imageUrl: data2[0]
+                    ? `http://${baseIp}:${port}/image/${data2[0].staff_id.replace(
+                        /\s/g,
+                        ""
+                      )}`
+                    : "http://${baseIp}:${port}/assets/jacket.jpg",
+                },
+              ]);
+            });
+        } else {
+          database
+            .select("*")
+            .from("staff")
+            // .join("finance", "students.stu_id", "=", "finance.stu_no")
+            .where({
+              staff_id: `${staffNo}`,
+            })
+            .then((data2) => {
+              res.send([
+                data3[data3.length - 1],
+                {
+                  todaysStatus: true,
+                  imageUrl: data2[0]
+                    ? `http://${baseIp}:${port}/image/${data2[0].staff_id.replace(
+                        /\s/g,
+                        ""
+                      )}`
+                    : "http://${baseIp}:${port}/assets/jacket.jpg",
+                },
+              ]);
+            });
+        }
+      } else {
+        database
+          .select("*")
+          .from("staff")
+          // .join("finance", "students.stu_id", "=", "finance.stu_no")
+          .where({
+            staff_id: `${staffNo}`,
+          })
+          .then((data2) => {
+            console.log("shdgghsdghd", data2);
+            if (data2[0]) {
+              res.send([
+                ...data2,
+                {
+                  todaysStatus: false,
+                  imageUrl: data2[0]
+                    ? `http://${baseIp}:${port}/image/${data2[0].staff_id.replace(
+                        /\s/g,
+                        ""
+                      )}`
+                    : "http://10.7.0.22:9000/image/NUA083",
+                },
+              ]);
+            } else {
+              res.send([
+                {
+                  todaysStatus: false,
+                  imageUrl: data2[0]
+                    ? `http://${baseIp}:${port}/image/${data2[0].staff_id.replace(
+                        /\s/g,
+                        ""
+                      )}`
+                    : "http://${baseIp}:${port}/assets/jacket.jpg",
+                },
+              ]);
+            }
+          });
+      }
+      // });
+    });
+
+  // database("students")
+  //   .join(
+  //     "students_signin_book",
+  //     "students.stu_id",
+  //     "=",
+  //     "students_signin_book.stu_id"
+  //   )
+  //   .select("*")
+  //   // .where("quantity", ">", 0)
+
+  //   .then((data) => {
+  //     res.send(data);
+  //   });
+});
+
 app.get("/lecture/:lecture_id", (req, res) => {
   const { lecture_id } = req.params;
   const userId = 1;
@@ -1488,6 +1638,134 @@ app.post("/studentReg", (req, res) => {
     });
 });
 
+app.post("/staffReg", (req, res) => {
+  const { staff_id, temp, signed_in_by, signed_in, signin_gate } = req.body;
+  console.log("reg data", req.body);
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  const time = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
+  console.log(
+    "time",
+    d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds()
+  );
+
+  database
+    .select("*")
+    .from("staff")
+
+    .join("staff_signin", "staff.staff_id", "=", "staff_signin.staff_id")
+
+    .where("staff.staff_id", "=", staff_id)
+    .andWhere("staff_signin.signin_date", "=", date)
+    .then((data) => {
+      console.log("Joined User", data);
+      if (data.length > 0) {
+        database("staff_signin_details")
+          .insert({
+            staff_id: staff_id,
+            temperature: temp,
+            signin_date: date,
+            signin_time: time,
+            signed_in_by: signed_in,
+            signin_gate,
+          })
+          .then((data) => {
+            database("users")
+              .where(function () {
+                this.where("stu_no", "=", staff_id);
+              })
+              .update({
+                stu_status: 1,
+              })
+              .then((data) => {
+                // res.send("updated the data");
+              })
+              .catch(
+                (err) => {}
+                // res.send(err)
+              );
+            res.send("Received the data");
+            // database("students_signout_book")
+            //   .insert({
+            //     stu_id: stu_id,
+            //     signin_date: date,
+            //   })
+            //   .then((data2) => {
+            //     res.send("Received the data");
+            //   });
+          })
+          .catch((err) => res.send(err));
+      } else {
+        database("staff_signin")
+          .insert({
+            staff_id: staff_id,
+            temperature: temp,
+            signin_date: date,
+            signin_time: time,
+            signed_in_by,
+          })
+          .then((data) => {
+            console.log("Recevid staff members");
+            database("staff_signin_details")
+              .insert({
+                staff_id: staff_id,
+                temperature: temp,
+                signin_date: date,
+                signin_time: time,
+                signed_in_by: signed_in,
+                signin_gate,
+              })
+              .then((data) => {
+                res.send("Received the data");
+                console.log("Received the data");
+
+                database
+                  .select("*")
+                  .from("staff")
+                  // .join("finance", "students.stu_id", "=", "finance.stu_no")
+                  .where({
+                    staff_id: `${staff_id}`,
+                  })
+                  .then((data8) => {
+                    database
+                      .select("*")
+                      .from("users")
+                      .where("users.stu_no", "=", staff_id)
+                      .then((data) => {
+                        // res.send(data);
+                        if (data.length == 0) {
+                          const staffID = data8[0].staff_id.replace(/\s/g, "");
+                          database("users")
+                            .insert({
+                              userfull_name: data8[0].staff_name,
+                              username: staffID,
+                              password: staffID,
+                              email: `${data8[0].staff_name.replace(
+                                /\s/g,
+                                ""
+                              )}@gmail.com`,
+                              gendar: null,
+                              phoneNo: null,
+                              DOB: null,
+                              Address: null,
+                              user_image: staffID,
+                              role: data8[0].role,
+                              stu_no: staffID,
+                              stu_status: 1,
+                              is_class_rep: 0,
+                            })
+                            .then((data4) => {});
+                        }
+                      });
+                  });
+              })
+              .catch((err) => console.log("errrr", err));
+          })
+          .catch((err) => res.send(err));
+      }
+    });
+});
+
 app.post("/studentSignout/", (req, res) => {
   const { studentNo, signed_in_by, signed_out_by, signin_time, signout_gate } =
     req.body;
@@ -1520,6 +1798,53 @@ app.post("/studentSignout/", (req, res) => {
       database("users")
         .where(function () {
           this.where("stu_no", "=", studentNo);
+        })
+        .update({
+          stu_status: 0,
+        })
+        .then((data) => {
+          // res.send("updated the data");
+        })
+        .catch(
+          (err) => {}
+          // res.send(err)
+        );
+      res.send("received the data");
+    });
+});
+
+app.post("/staffSignout/", (req, res) => {
+  const { staff_id, signed_in_by, signed_out_by, signin_time, signout_gate } =
+    req.body;
+  console.log(req.body);
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  const time = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
+
+  database("staff_signin_details")
+    // .where("stu_id", "=", studentNo)
+    .where(function () {
+      this.where("staff_id", "=", staff_id);
+    })
+    .andWhere(function () {
+      this.where("signin_date", "=", date);
+    })
+    .andWhere(function () {
+      this.where("signed_in_by", "=", signed_in_by);
+    })
+    .andWhere(function () {
+      this.where("signin_time", "=", signin_time);
+    })
+    .select("*")
+    .update({
+      signed_out_by: signed_out_by,
+      signout_time: time,
+      signout_gate,
+    })
+    .then((data) => {
+      database("users")
+        .where(function () {
+          this.where("stu_no", "=", staff_id);
         })
         .update({
           stu_status: 0,
