@@ -254,12 +254,12 @@ app.post("/myCourseUnitsToday/", (req, res) => {
   // let arr = lectures.split(",");
   // console.log(lectures.split(","));
 
-  console.log(Array.isArray(req.body));
-  console.log(req.body);
-  console.log("from the client ", req.body.day);
+  // console.log(Array.isArray(req.body));
+  // console.log(req.body);
+  // console.log("from the client ", req.body.day);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
-  console.log(d.getDay());
+  // console.log(d.getDay());
 
   // console.log("from the client ", req.body.my_array);
   console.log("date ", date);
@@ -336,7 +336,7 @@ app.post("/myCourseUnitsToday/", (req, res) => {
               "YYYY-MM--DD"
             );
             if (moment.duration(moment2.diff(moment1))._data.days > 0) {
-              console.log(moment.duration(moment2.diff(moment1))._data.days);
+              // console.log(moment.duration(moment2.diff(moment1))._data.days);
               // console.log("Lecture is not supposed to be taught now");
               newArr.push({ ...item, status: "not now" });
               // console.log({ ...item, status: "not now" });
@@ -375,17 +375,17 @@ app.post("/myCourseUnitsToday/", (req, res) => {
           .then((data10) => {
             data10.forEach((member) => {
               if (lecture.has_ended && member.lecture_id == lecture.c_unit_id) {
-                console.log("He atttended the lecture jkdjdjkdjkjkdjkd");
+                // console.log("He atttended the lecture jkdjdjkdjkjkdjkd");
                 newArr.push({ ...lecture, attendedLecture: "true" });
               } else if (
                 lecture.has_ended &&
                 member.lecture_id != lecture.c_unit_id
               ) {
-                console.log("He diddnt atttended the lecture jkdjdjkdjkjkdjkd");
+                // console.log("He diddnt atttended the lecture jkdjdjkdjkjkdjkd");
                 newArr.push({ ...lecture, attendedLecture: "false" });
               }
             });
-            console.log("data", newArr);
+            // console.log("data", newArr);
           });
       });
       res.send(newArr);
@@ -467,7 +467,7 @@ app.post("/lecturerCourseunits/", (req, res) => {
               );
 
               if (moment.duration(moment2.diff(moment1))._data.days > 0) {
-                console.log(moment.duration(moment2.diff(moment1))._data.days);
+                // console.log(moment.duration(moment2.diff(moment1))._data.days);
                 // console.log("Lecture is not supposed to be taught now");
                 newArr.push({ ...lecture, status: "not now" });
                 // console.log({ ...item, status: "not now" });
@@ -499,7 +499,7 @@ app.post("/lecturerCourseunits/", (req, res) => {
 app.post("/getCustomReports/", (req, res) => {
   // to be changed for the dashboard
   const { date, requiredData } = req.body;
-  console.log(req.body);
+  // console.log(req.body);
   if (requiredData && date) {
     if (requiredData == "students") {
       database
@@ -2503,7 +2503,7 @@ io.on("connection", async (socket) => {
     }
     socket.join(data.stu_no);
     const room = [...socket.rooms][1];
-    console.log("rooms", room);
+    // console.log("rooms", room);
     io.in(`${room}`).emit("updateStudentStatus", data);
     // io.emit("updateStudentStatus", data);
   });
@@ -2512,7 +2512,7 @@ io.on("connection", async (socket) => {
     const d = new Date();
     const date =
       d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + data.selectedDate;
-    console.log("lectureHasStarted", data);
+    // console.log("lectureHasStarted", data);
     //update lecture status in database
     // database("timetable")
     //   .where(function () {
@@ -2633,11 +2633,11 @@ io.on("connection", async (socket) => {
 
         const membersInRoom = getMembersInRoom(data2[0].c_unit_id);
 
-        console.log("Memebers in the room ", membersInRoom);
+        // console.log("Memebers in the room ", membersInRoom);
 
         io.in(`${room}`).emit("updatedMembersList", membersInRoom);
 
-        console.log("rooms", socket.rooms);
+        // console.log("rooms", socket.rooms);
         let customList = [];
         // members.forEach((member) => {
         //   if (member.room == `${data2[0].c_unit_id}`) {
@@ -2650,7 +2650,7 @@ io.on("connection", async (socket) => {
         //   count: members.length,
         // });
 
-        console.log("Updated Members", members);
+        // console.log("Updated Members", members);
         checkMembers("/", room);
 
         // database
@@ -2690,7 +2690,7 @@ const getMembersInRoom = (room) => {
 
 const checkMembers = async (namespace, roomToJoin) => {
   const clients = await io.of(namespace.endpoint).in(roomToJoin).allSockets();
-  console.log("Clients connected", clients);
+  // console.log("Clients connected", clients);
   // io.of(namespace.endpoint)
   //   .to(roomToJoin)
   //   .emit("currNumOfClients", clients.size);
