@@ -12,7 +12,7 @@ const moment = require("moment");
 
 const upload = multer();
 const app = express();
-const baseIp = "10.7.0.22";
+const baseIp = "10.7.8.52";
 const secret = "mySecret";
 const port = 9000;
 
@@ -564,6 +564,27 @@ app.get("/studentsToday", (req, res) => {
     .join("users", "student_signin.signed_in_by", "=", "users.id")
     // .where("students.stu_id", "=", studentNo)
     .andWhere("student_signin.signin_date", "=", date)
+    .orderBy("signin_time")
+    .then((data) => {
+      data.map((item) => {
+        const d2 = new Date(item.signin_date);
+        const date2 = ` ${d2.getFullYear()}-0${
+          d2.getMonth() + 1
+        }-${d2.getDate()}`;
+        item.signin_date = date2;
+      });
+      res.send(data);
+    });
+});
+
+app.get("/staffToday", (req, res) => {
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  //to be changed for the dashboard
+  database
+    .select("*")
+    .from("staff_signin")
+    .where("staff_signin.signin_date", "=", date)
     .orderBy("signin_time")
     .then((data) => {
       data.map((item) => {
@@ -2353,9 +2374,114 @@ io.on("connection", async (socket) => {
     console.log([...socket.rooms]);
   });
 
+  socket.on("joinAdminRoom", (roomToJoin) => {
+    const roomToLeave = [...socket.rooms][1];
+    if (roomToLeave) {
+      socket.leave(roomToLeave);
+    }
+    console.log("Joining Admin Room");
+    socket.join(roomToJoin);
+    console.log([...socket.rooms]);
+  });
+
+  socket.on("updateStudentsLoggedIn", (data) => {
+    // console.log("REceiving updates");
+    // console.log(data);
+
+    // const roomToLeave = [...socket.rooms][1];
+    // if (roomToLeave) {
+    //   socket.leave(roomToLeave);
+    // }
+    // socket.join(data.stu_no);
+    // const room = [...socket.rooms][1];
+    // console.log("rooms", room);
+    const d = new Date();
+    const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+    //to be changed for the dashboard
+    database
+      .select("*")
+      .from("students_biodata")
+
+      .join(
+        "student_signin",
+        "students_biodata.stdno",
+        "=",
+        "student_signin.stu_id"
+      )
+      .join("users", "student_signin.signed_in_by", "=", "users.id")
+      // .where("students.stu_id", "=", studentNo)
+      .andWhere("student_signin.signin_date", "=", date)
+      .orderBy("signin_time")
+      .then((data) => {
+        data.map((item) => {
+          const d2 = new Date(item.signin_date);
+          const date2 = ` ${d2.getFullYear()}-0${
+            d2.getMonth() + 1
+          }-${d2.getDate()}`;
+          item.signin_date = date2;
+        });
+        // res.send(data);
+        io.in("admin").emit("updateStudentsLoggedIn", data);
+      });
+
+    database
+      // .orderBy("id")
+      .select("*")
+      .from("students_biodata")
+      .then((data) => {
+        // res.send(data);
+        io.in("admin").emit("updateAllStudentsInDB", data);
+      });
+
+    // io.emit("updateStudentStatus", data);
+  });
+
+  socket.on("updateStaffLoggedIn", (data) => {
+    // console.log("REceiving updates");
+    // console.log(data);
+
+    // const roomToLeave = [...socket.rooms][1];
+    // if (roomToLeave) {
+    //   socket.leave(roomToLeave);
+    // }
+    // socket.join(data.stu_no);
+    // const room = [...socket.rooms][1];
+    // console.log("rooms", room);
+    const d = new Date();
+    const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+    //to be changed for the dashboard
+    database
+      .select("*")
+      .from("staff_signin")
+      .where("staff_signin.signin_date", "=", date)
+      .orderBy("signin_time")
+      .then((data) => {
+        data.map((item) => {
+          const d2 = new Date(item.signin_date);
+          const date2 = ` ${d2.getFullYear()}-0${
+            d2.getMonth() + 1
+          }-${d2.getDate()}`;
+          item.signin_date = date2;
+        });
+        // res.send(data);
+        io.in("admin").emit("updateStaffLoggedIn", data);
+      });
+
+    database
+      // .orderBy("id")
+      .select("*")
+      .from("staff")
+      .then((data) => {
+        // res.send(data);
+        io.in("admin").emit("updateAllStaffInDB", data);
+      });
+
+    // io.emit("updateStudentStatus", data);
+  });
+
   socket.on("updateStudentStatusToServer", (data) => {
-    console.log("REceiving updates");
-    console.log(data);
+    // console.log("REceiving updates");
+    // console.log(data);
 
     database("users")
       .where(function () {
