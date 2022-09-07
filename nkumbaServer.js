@@ -167,17 +167,17 @@ app.get("/getFees", (req, res) => {
 app.post("/addAllMyCourseUnits", (req, res) => {
   const { stu_no, course_id, course_name, course_code } = req.body;
   let status = false;
-  console.log("sent course unit", req.body);
+  // console.log("sent course unit", req.body);
   database
     // .orderBy("id")
     .select("*")
     .from("stu_selected_course_units")
-    .join(
-      "modules",
-      "stu_selected_course_units.course_id",
-      "=",
-      "modules.course_id"
-    )
+    // .join(
+    //   "modules",
+    //   "stu_selected_course_units.course_id",
+    //   "=",
+    //   "modules.course_id"
+    // )
     .where(function () {
       this.where("stu_id", "=", stu_no);
     })
@@ -192,6 +192,8 @@ app.post("/addAllMyCourseUnits", (req, res) => {
       });
       if (status == false) {
         if (data.length >= 8) {
+          // console.log("the course units", data);
+          // console.log("length of selected course units", data.length);
           res.send("Maximum number of course units selected");
         } else {
           database("stu_selected_course_units")
@@ -239,7 +241,7 @@ app.post("/addConstraint", (req, res) => {
 
 app.post("/updateConstraint/", (req, res) => {
   const { c_id, c_name, c_percentage } = req.body;
-  console.log(req.body);
+  //console.log(req.body);
 
   database("constraints")
     .where(function () {
@@ -257,7 +259,7 @@ app.post("/updateConstraint/", (req, res) => {
 
 app.get("/mySelectedCourseUnits/:stu_no", (req, res) => {
   const { stu_no } = req.params;
-  console.log("new", stu_no);
+  // console.log("new", stu_no);
 
   database
     .select("*")
@@ -301,12 +303,12 @@ app.post("/myCourseUnitsTodayDashboard/", (req, res) => {
   // console.log(lectures.split(","));
 
   // console.log(Array.isArray(req.body));
-  // console.log(req.body);
+  console.log(req.body);
   // console.log("from the client ", req.body.my_array);
   // console.log("from the client ", req.body.day);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
-  console.log(d.getDay());
+  //console.log(d.getDay());
   let newArr = [];
 
   // arr.forEach((e) => {
@@ -319,16 +321,23 @@ app.post("/myCourseUnitsTodayDashboard/", (req, res) => {
     .where("day_id", "=", req.body.day)
     //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
     .join("lecturers", "timetable.lecturer_id", "=", "lecturers.lecturer_id")
+    .join(
+      "stu_selected_course_units",
+      "timetable.c_unit_id",
+      "=",
+      "stu_selected_course_units.course_id"
+    )
     .join("schools", "timetable.school_id", "=", "schools.school_id")
-    .join("modules", function () {
-      this.on("timetable.course_unit_name", "=", "modules.course_name");
-      //.andOn("stu_selected_course_units.course", "=", "modules.course_code");
-    })
+    .andWhere("stu_selected_course_units.stu_id", "=", req.body.stu_no)
+    // .join("modules", function () {
+    //   this.on("timetable.course_unit_name", "=", "modules.course_name");
+    //   //.andOn("stu_selected_course_units.course", "=", "modules.course_code");
+    // })
     // .where("c_unit_id", "=", 1)
     .orderBy("start_time")
     .then((data) => {
       // newArr.push(data);
-      console.log("response here", data);
+      // console.log("response here", data);
       data.forEach((item) => {
         req.body.my_array.forEach((reqItem) => {
           if (item.c_unit_id == reqItem) {
@@ -500,20 +509,20 @@ app.post("/myCourseUnitsToday/", (req, res) => {
   // console.log(lectures.split(","));
 
   // console.log(Array.isArray(req.body));
-  console.log("Data received", req.body);
+  //console.log("Data received", req.body);
   // console.log("from the client ", req.body.day);
   const d = new Date();
-  const date =
-    d.getFullYear() + "-" + req.body.selectedMonth + "-" + d.getDate();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
   // console.log(d.getDay());
 
   // console.log("from the client ", req.body.my_array);
   console.log("date ", date);
+  let currentTime = new Date().toLocaleTimeString();
 
-  var m1 = moment("2022-08-08 7:00AM", "YYYY-MM--DD h:mmA");
+  var m1 = moment(`2022-09-05 7:00AM`, "YYYY-MM--DD h:mmA");
   // var m1 = moment();
 
-  var moment1 = moment("2022-08-8", "YYYY-MM--DD");
+  var moment1 = moment(`2022-09-05`, "YYYY-MM--DD");
   // var moment1 = moment();
 
   // arr.forEach((e) => {
@@ -525,6 +534,9 @@ app.post("/myCourseUnitsToday/", (req, res) => {
     .from("timetable")
     // .join("lectures", "timetable.tt_id", "=", "lectures.tt_id")
     .where("day_id", "=", req.body.day)
+    // .andWhere("timetable.school", "=", req.body.school)
+    // .andWhere("timetable.study_time", "=", req.body.study_time)
+    // .where("day_id", "=", req.body.day)
 
     //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
     .join(
@@ -654,16 +666,18 @@ app.post("/myCourseUnitsToday/", (req, res) => {
 
 app.post("/lecturerCourseunits/", (req, res) => {
   const { lecturer_id, day, l_date } = req.body;
-  // console.log(req.params);
+  //console.log("data from ", req.params);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
-  console.log(req.body);
+  //  console.log(req.body);
   let newArr = [];
 
-  var m1 = moment("2022-08-08 7:00AM", "YYYY-MM--DD h:mmA");
+  let currentTime = new Date().toLocaleTimeString();
+
+  var m1 = moment(`2022-09-05 7:00AM`, "YYYY-MM--DD h:mmA");
   // var m1 = moment();
 
-  var moment1 = moment("2022-08-8", "YYYY-MM--DD");
+  var moment1 = moment(`2022-09-05`, "YYYY-MM--DD");
   // var moment1 = moment();
 
   database
@@ -1107,9 +1121,9 @@ app.get("/studentData", (req, res) => {
 
 app.post("/allstudentdetails/", (req, res) => {
   const { studentNo, date } = req.body;
-  console.log(req.body);
+  // console.log(req.body);
   const userId = 1;
-  console.log(studentNo);
+  //console.log(studentNo);
   // const d = new Date();
   // const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
   // let modifiedData = [];
@@ -1221,7 +1235,7 @@ app.post("/allstudentdetails/", (req, res) => {
 app.get("/allstudentdetails/:studentNo", (req, res) => {
   const { studentNo } = req.params;
   const userId = 1;
-  console.log(studentNo);
+  // console.log(studentNo);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
   let modifiedData = [];
@@ -1351,7 +1365,7 @@ app.get("/allstudentdetails/:studentNo", (req, res) => {
 app.get("/student/:studentNo", (req, res) => {
   const { studentNo } = req.params;
   const userId = 1;
-  console.log("number", studentNo);
+  //console.log("number", studentNo);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 
@@ -1553,7 +1567,7 @@ app.get("/student/:studentNo", (req, res) => {
 app.get("/staff/:staffNo", (req, res) => {
   const { staffNo } = req.params;
   const userId = 1;
-  console.log("staff number", staffNo);
+  //console.log("staff number", staffNo);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 
@@ -1651,7 +1665,7 @@ app.get("/staff/:staffNo", (req, res) => {
             staff_id: `${staffNo}`,
           })
           .then((data2) => {
-            console.log("shdgghsdghd", data2);
+            //console.log("shdgghsdghd", data2);
             if (data2[0]) {
               res.send([
                 ...data2,
@@ -1701,7 +1715,7 @@ app.get("/staff/:staffNo", (req, res) => {
 app.get("/lecture/:lecture_id", (req, res) => {
   const { lecture_id } = req.params;
   const userId = 1;
-  console.log("number", lecture_id);
+  //console.log("number", lecture_id);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 
@@ -1752,14 +1766,14 @@ Date.prototype.toMysqlFormat = function () {
 
 app.post("/gateReg", (req, res) => {
   const { gate_id, user_id } = req.body;
-  console.log(req.body);
+  // console.log(req.body);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
   const time = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
-  console.log(
-    "time",
-    d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds()
-  );
+  // console.log(
+  //   "time",
+  //   d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds()
+  // );
 
   database("assigned_gates")
     .insert({
@@ -1809,14 +1823,14 @@ app.post("/gateReg", (req, res) => {
 app.post("/studentReg", (req, res) => {
   const { stu_id, temp, signed_in_by, signed_in, signin_gate, studentBioData } =
     req.body;
-  // console.log("reg data", req.body);
+  //console.log("reg data", req.body);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
   const time = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
-  console.log(
-    "time",
-    d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds()
-  );
+  // console.log(
+  //   "time",
+  //   d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds()
+  // );
 
   database
     .select("*")
@@ -1862,7 +1876,10 @@ app.post("/studentReg", (req, res) => {
             //     res.send("Received the data");
             //   });
           })
-          .catch((err) => res.send(err));
+          .catch((err) => {
+            console.log("incurred an error", err);
+            res.send(err);
+          });
       } else {
         database("student_signin")
           .insert({
@@ -1924,7 +1941,10 @@ app.post("/studentReg", (req, res) => {
                 //     res.send("Received the data");
                 //   });
               })
-              .catch((err) => res.send(err));
+              .catch((err) => {
+                console.log("incurred an error", err);
+                res.send(err);
+              });
 
             // database("students_signout_book")
             //   .insert({
@@ -1935,7 +1955,10 @@ app.post("/studentReg", (req, res) => {
             //     res.send("Received the data");
             //   });
           })
-          .catch((err) => res.send(err));
+          .catch((err) => {
+            console.log("incurred an error", err);
+            res.send(err);
+          });
       }
     });
 
@@ -1984,14 +2007,14 @@ app.post("/studentReg", (req, res) => {
 
 app.post("/staffReg", (req, res) => {
   const { staff_id, temp, signed_in_by, signed_in, signin_gate } = req.body;
-  console.log("reg data", req.body);
+  //console.log("reg data", req.body);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
   const time = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
-  console.log(
-    "time",
-    d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds()
-  );
+  // console.log(
+  //   "time",
+  //   d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds()
+  // );
 
   database
     .select("*")
@@ -2002,7 +2025,7 @@ app.post("/staffReg", (req, res) => {
     .where("staff.staff_id", "=", staff_id)
     .andWhere("staff_signin.signin_date", "=", date)
     .then((data) => {
-      console.log("Joined User", data);
+      //console.log("Joined User", data);
       if (data.length > 0) {
         database("staff_signin_details")
           .insert({
@@ -2113,7 +2136,7 @@ app.post("/staffReg", (req, res) => {
 app.post("/studentSignout/", (req, res) => {
   const { studentNo, signed_in_by, signed_out_by, signin_time, signout_gate } =
     req.body;
-  console.log(req.body);
+  // console.log(req.body);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
   const time = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
@@ -2160,7 +2183,7 @@ app.post("/studentSignout/", (req, res) => {
 app.post("/staffSignout/", (req, res) => {
   const { staff_id, signed_in_by, signed_out_by, signin_time, signout_gate } =
     req.body;
-  console.log(req.body);
+  //console.log(req.body);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
   const time = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
@@ -2207,7 +2230,7 @@ app.post("/staffSignout/", (req, res) => {
 //check out which students subscribed for a particular lecture
 app.post("/checkStudentSubscription/", (req, res) => {
   const { course_id, stu_id, date } = req.body;
-  console.log(req.body);
+  //console.log(req.body);
   const d = new Date();
   // const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 
@@ -2235,7 +2258,7 @@ app.post("/checkStudentSubscription/", (req, res) => {
 //get the data about lectures that already started
 app.post("/getLectureData/", (req, res) => {
   const { course_id, tt_id, day_id, selectedDate } = req.body;
-  console.log(req.body);
+  //console.log(req.body);
   const d = new Date(selectedDate);
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
   // console.log("Loooking for date", date);
@@ -2268,7 +2291,7 @@ app.post("/getLectureData/", (req, res) => {
 
 app.get("/getEnrolledStudents/:course_id", (req, res) => {
   const { course_id } = req.params;
-  console.log("enrollment sent records", req.params);
+  //console.log("enrollment sent records", req.params);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 
@@ -2280,14 +2303,14 @@ app.get("/getEnrolledStudents/:course_id", (req, res) => {
       course_id,
     })
     .then((data) => {
-      console.log("Enrolled students here", data);
+      //console.log("Enrolled students here", data);
       res.send(data);
     });
 });
 
 app.post("/api/login", (req, res) => {
   const { username, password } = req.body;
-  console.log(username, password);
+  //console.log(username, password);
   database
     .select("*")
     .where({
@@ -2296,7 +2319,7 @@ app.post("/api/login", (req, res) => {
     })
     .from("users")
     .then((user) => {
-      console.log(user);
+      // console.log(user);
       if (!user[0]) {
         return res.status(400).json({ error: "Invalid email or password " });
       } else {
@@ -2370,7 +2393,7 @@ app.post("/api/addVisitor", (req, res) => {
   const { full_name, reason, office, signed_in_by, signin_gate } = req.body;
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
-  console.log(req.body);
+  //console.log(req.body);
   database("visitors")
     .insert({
       v_full_name: full_name,
@@ -2388,7 +2411,7 @@ app.post("/lectureHasEnded", (req, res) => {
   const data = req.body;
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
-  console.log(req.body);
+  //console.log(req.body);
 
   database
     .select("*")
@@ -2671,9 +2694,9 @@ io.on("connection", async (socket) => {
   });
 
   socket.on("saveMyRating", (data) => {
-    console.log("My rating", data);
-    console.log(socket.id);
-    console.log([...socket.rooms]);
+    // console.log("My rating", data);
+    // console.log(socket.id);
+    // console.log([...socket.rooms]);
     io.in(socket.id).emit("testingToMeOnly", "Am send as me ");
     database
       .select("*")
@@ -2887,7 +2910,7 @@ io.on("connection", async (socket) => {
           .andWhere("lecture_id", data.course_id)
           .andWhere("date", data.date)
           .then((data10) => {
-            console.log("Member in database", data10);
+            // console.log("Member in database", data10);
             if (data10.length == 0) {
               //user is not there, so we a adding the student
               addMember(
@@ -2913,7 +2936,7 @@ io.on("connection", async (socket) => {
               })
               .then((data8) => {
                 //res.send([...data, data8]);
-                console.log("updatedMembersList", data8);
+                //  console.log("updatedMembersList", data8);
                 // io.in(`${room}`).emit("updatedMembersList", data8);
 
                 io.in(`${data.course_id}`).emit("updatedMembersList", data8);
@@ -2934,13 +2957,13 @@ io.on("connection", async (socket) => {
         });
         // members.splice(indexOfObject, 1);
 
-        console.log("indexOfObject", indexOfObject);
+        //console.log("indexOfObject", indexOfObject);
         if (indexOfObject !== -1) {
           //student already in the list
           // members.splice(indexOfObject, 1)
-          console.log(
-            "student already in the list, am just updating the status"
-          );
+          // console.log(
+          //   "student already in the list, am just updating the status"
+          // );
           io.in(`${data.course_id}`).emit(
             "studentAlreadyInClass",
             "student already in class"
@@ -3022,11 +3045,11 @@ io.on("connection", async (socket) => {
       .where({
         lecture_id: data.course_id,
         day_id: data.day_id,
-        date: data.date,
+        date: date,
       })
       .then((data8) => {
         //res.send([...data, data8]);
-        console.log("updatedMembersList", data8);
+        //  console.log("updatedMembersList", data8);
         // io.in(`${room}`).emit("updatedMembersList", data8);
 
         io.in(`${data.course_id}`).emit("updatedMembersList", data8);
@@ -3036,16 +3059,16 @@ io.on("connection", async (socket) => {
 
   socket.on("joinRoom", (roomToJoin) => {
     const user2 = socket.handshake.query;
-    console.log("user query", user2);
+    //console.log("user query", user2);
     let user;
     // console.log("handshake", socket.handshake.query);
-    console.log("Socket data", roomToJoin);
+    //console.log("Socket data", roomToJoin);
     database("lecture_members")
       .where(function () {
         this.where("member_id", "=", socket.handshake.query.user_id);
       })
       .then((data10) => {
-        console.log("Member in database", data10);
+        //  console.log("Member in database", data10);
         if (data10.length == 0) {
           //user is not there, so we a adding the student
           user = addUser(
@@ -3068,7 +3091,7 @@ io.on("connection", async (socket) => {
             new Date().toLocaleTimeString()
           );
         }
-        console.log("User ", user);
+        //  console.log("User ", user);
 
         const indexOfObject = members.findIndex((object) => {
           return object.id === socket.handshake.query.user_id;
@@ -3080,9 +3103,9 @@ io.on("connection", async (socket) => {
           socket.leave(roomToLeave);
         }
 
-        console.log("Joining room");
+        //   console.log("Joining room");
         socket.join(roomToJoin);
-        console.log([...socket.rooms]);
+        // console.log([...socket.rooms]);
 
         members.push(user);
         checkMembers("/", roomToJoin);
@@ -3097,9 +3120,9 @@ io.on("connection", async (socket) => {
     if (roomToLeave) {
       socket.leave(roomToLeave);
     }
-    console.log("Joining room");
+    // console.log("Joining room");
     socket.join(roomToJoin);
-    console.log([...socket.rooms]);
+    // console.log([...socket.rooms]);
   });
 
   socket.on("joinAdminRoom", (roomToJoin) => {
@@ -3107,9 +3130,9 @@ io.on("connection", async (socket) => {
     if (roomToLeave) {
       socket.leave(roomToLeave);
     }
-    console.log("Joining Admin Room");
+    //   console.log("Joining Admin Room");
     socket.join(roomToJoin);
-    console.log([...socket.rooms]);
+    //console.log([...socket.rooms]);
   });
 
   socket.on("updateStudentsLoggedIn", (data) => {
@@ -3238,8 +3261,7 @@ io.on("connection", async (socket) => {
 
   socket.on("lectureHasStarted", (data) => {
     const d = new Date();
-    const date =
-      d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + data.selectedDate;
+    const date = data.l_year + "-" + data.l_month + "-" + data.selectedDate;
     console.log("lectureHasStarted", data);
     //update lecture status in database
     // database("timetable")
@@ -3286,171 +3308,207 @@ io.on("connection", async (socket) => {
                   passcode: data.passcode,
                   started_at: new Date().toLocaleTimeString(),
                 })
-                .then((data) => {
+                .then((d) => {
                   // res.send("lecture added Successfully");
                   console.log("lecture added Successfully");
+
+                  const roomToLeave = [...socket.rooms][1];
+                  if (roomToLeave) {
+                    socket.leave(roomToLeave);
+                  }
+                  console.log("room", data2[0].c_unit_id);
+                  socket.join(`${data2[0].c_unit_id}`);
+
+                  const room = [...socket.rooms][1];
+
+                  database("lectures")
+                    .select("*")
+                    .where({
+                      course_unit_id: data.lecture_id,
+                      l_year: data.l_year,
+                      date: data.date,
+                    })
+                    .then((data8) => {
+                      //res.send([...data, data8]);
+                      //console.log("data check", data8);
+                      if (data8.length == 0) {
+                        //meaning the fetching is early
+                        database("lectures")
+                          // .join(
+                          //   "users",
+                          //   "lecture_members.member_id",
+                          //   "=",
+                          //   "users.stu_no"
+                          // )
+                          .select("*")
+                          .where({
+                            course_unit_id: data.lecture_id,
+                            l_year: data.l_year,
+                            date: data.date,
+                          })
+                          .then((data10) => {
+                            io.in(`${room}`).emit(
+                              "lectureHasStartedFromServer",
+                              {
+                                start_time: data10[0].started_at,
+                                course_id: data2[0].c_unit_id,
+                                started: true,
+                                lectureMode: data.lectureMode,
+                                link: data.link,
+                                meetingId: data.meetingId,
+                                passcode: data.passcode,
+                              }
+                            );
+                          });
+                      } else {
+                        io.in(`${room}`).emit("lectureHasStartedFromServer", {
+                          start_time: data8[0].started_at,
+                          course_id: data2[0].c_unit_id,
+                          started: true,
+                          lectureMode: data.lectureMode,
+                          link: data.link,
+                          meetingId: data.meetingId,
+                          passcode: data.passcode,
+                        });
+                      }
+                    });
+                  members.forEach((member) => {
+                    if (member.room == `${data2[0].c_unit_id}`) {
+                      if (member.role == "Lecturer") {
+                        member.status = "true";
+                        //inserting the lecturer in the lecture members table
+
+                        database("lecture_members")
+                          .where(function () {
+                            this.where("member_id", "=", member.id);
+                          })
+                          .andWhere("lecture_id", member.room)
+                          .andWhere("date", data.date)
+                          .then((data10) => {
+                            // console.log("Members in database", data10);
+                            if (data10.length == 0) {
+                              //user is not there, so we a adding the student
+                              addMember(
+                                member.id,
+                                data.day_id,
+
+                                data.date,
+                                data2[0].c_unit_id,
+                                1,
+                                0,
+                                new Date().toLocaleTimeString()
+                              );
+                            }
+                          })
+                          .then((result) => {
+                            // if (data.lectureMode == 1) {
+                            database("lecture_members")
+                              .join(
+                                "users",
+                                "lecture_members.member_id",
+                                "=",
+                                "users.stu_no"
+                              )
+                              .select("*")
+
+                              .where({
+                                lecture_id: data.lecture_id,
+                                day_id: data.day_id,
+                                date: data.date,
+                              })
+                              .then((data8) => {
+                                //res.send([...data, data8]);
+                                console.log("updatedMembersList", data8);
+                                io.in(`${room}`).emit(
+                                  "updatedMembersList",
+                                  data8
+                                );
+                              });
+                            // }
+                          });
+                      } else if (
+                        member.is_class_rep == "1" &&
+                        data.lectureMode == 1
+                      ) {
+                        member.status = "true";
+
+                        database("lecture_members")
+                          .where(function () {
+                            this.where("member_id", "=", member.id);
+                          })
+                          .andWhere("lecture_id", member.room)
+                          .andWhere("date", data.date)
+                          .then((data10) => {
+                            // console.log("Member in database", data10);
+                            if (data10.length == 0) {
+                              //user is not there, so we a adding the student
+                              addMember(
+                                member.id,
+                                data.day_id,
+
+                                data.date,
+                                data2[0].c_unit_id,
+                                1,
+                                1,
+                                new Date().toLocaleTimeString()
+                              );
+                            }
+                          })
+                          .then((result) => {
+                            database("lecture_members")
+                              .join(
+                                "users",
+                                "lecture_members.member_id",
+                                "=",
+                                "users.stu_no"
+                              )
+                              .select("*")
+                              .where({
+                                lecture_id: data.lecture_id,
+                                day_id: data.day_id,
+                                date: data.date,
+                              })
+                              .then((membersInDB) => {
+                                //res.send([...data, data8]);
+                                //console.log("updatedMembersList", membersInDB);
+                                io.in(`${room}`).emit(
+                                  "updatedMembersList",
+                                  membersInDB
+                                );
+                              });
+                          });
+                      }
+                    }
+                  });
+
+                  database("lecture_members")
+                    .join(
+                      "users",
+                      "lecture_members.member_id",
+                      "=",
+                      "users.stu_no"
+                    )
+                    .select("*")
+
+                    .where({
+                      lecture_id: data.lecture_id,
+                      day_id: data.day_id,
+                      date: data.date,
+                    })
+                    .then((updates2) => {
+                      //res.send([...data, data8]);
+                      //console.log("updatedMembersList", updates2);
+                      io.in(`${room}`).emit("updatedMembersList", updates2);
+                    });
+
+                  checkMembers("/", room);
                 })
                 .catch((err) => console.log("error in adding lecture", err));
             }
-          })
-          .then(() => {
-            const roomToLeave = [...socket.rooms][1];
-            if (roomToLeave) {
-              socket.leave(roomToLeave);
-            }
-            console.log("room", data2[0].c_unit_id);
-            socket.join(`${data2[0].c_unit_id}`);
-
-            const room = [...socket.rooms][1];
-
-            database("lectures")
-              // .join(
-              //   "users",
-              //   "lecture_members.member_id",
-              //   "=",
-              //   "users.stu_no"
-              // )
-              .select("*")
-
-              .where({
-                course_unit_id: data.lecture_id,
-                l_year: data.l_year,
-                date: data.date,
-              })
-              .then((data8) => {
-                //res.send([...data, data8]);
-                console.log("data check", data8);
-                io.in(`${room}`).emit("lectureHasStartedFromServer", {
-                  start_time: data8[0].started_at,
-                  course_id: data2[0].c_unit_id,
-                  started: true,
-                  lectureMode: data.lectureMode,
-                  link: data.link,
-                  meetingId: data.meetingId,
-                  passcode: data.passcode,
-                });
-              });
-
-            members.forEach((member) => {
-              if (member.room == `${data2[0].c_unit_id}`) {
-                if (member.role == "Lecturer") {
-                  member.status = "true";
-                  //inserting the lecturer in the lecture members table
-                  database("lecture_members")
-                    .where(function () {
-                      this.where("member_id", "=", member.id);
-                    })
-                    .andWhere("lecture_id", member.room)
-                    .andWhere("date", data.date)
-                    .then((data10) => {
-                      console.log("Member in database", data10);
-                      if (data10.length == 0) {
-                        //user is not there, so we a adding the student
-                        addMember(
-                          member.id,
-                          data.day_id,
-
-                          data.date,
-                          data2[0].c_unit_id,
-                          1,
-                          0,
-                          new Date().toLocaleTimeString()
-                        );
-                      }
-                    })
-                    .then((result) => {
-                      if (data.lectureMode == 2) {
-                        database("lecture_members")
-                          .join(
-                            "users",
-                            "lecture_members.member_id",
-                            "=",
-                            "users.stu_no"
-                          )
-                          .select("*")
-
-                          .where({
-                            lecture_id: data.lecture_id,
-                            day_id: data.day_id,
-                            date: data.date,
-                          })
-                          .then((data8) => {
-                            //res.send([...data, data8]);
-                            console.log("updatedMembersList", data8);
-                            io.in(`${room}`).emit("updatedMembersList", data8);
-                          });
-                      }
-                    });
-                } else if (
-                  member.is_class_rep == "1" &&
-                  data.lectureMode == 1
-                ) {
-                  member.status = "true";
-
-                  database("lecture_members")
-                    .where(function () {
-                      this.where("member_id", "=", member.id);
-                    })
-                    .andWhere("lecture_id", member.room)
-                    .andWhere("date", data.date)
-                    .then((data10) => {
-                      console.log("Member in database", data10);
-                      if (data10.length == 0) {
-                        //user is not there, so we a adding the student
-                        addMember(
-                          member.id,
-                          data.day_id,
-
-                          data.date,
-                          data2[0].c_unit_id,
-                          1,
-                          1,
-                          new Date().toLocaleTimeString()
-                        );
-                      }
-                    })
-                    .then((result) => {
-                      database("lecture_members")
-                        .join(
-                          "users",
-                          "lecture_members.member_id",
-                          "=",
-                          "users.stu_no"
-                        )
-                        .select("*")
-
-                        .where({
-                          lecture_id: data.lecture_id,
-                          day_id: data.day_id,
-                          date: data.date,
-                        })
-                        .then((data8) => {
-                          //res.send([...data, data8]);
-                          console.log("updatedMembersList", data8);
-                          io.in(`${room}`).emit("updatedMembersList", data8);
-                        });
-                    });
-                }
-              }
-            });
-
-            database("lecture_members")
-              .join("users", "lecture_members.member_id", "=", "users.stu_no")
-              .select("*")
-
-              .where({
-                lecture_id: data.lecture_id,
-                day_id: data.day_id,
-                date: data.date,
-              })
-              .then((data8) => {
-                //res.send([...data, data8]);
-                console.log("updatedMembersList", data8);
-                io.in(`${room}`).emit("updatedMembersList", data8);
-              });
-
-            checkMembers("/", room);
           });
+        // .then(() => {
+
+        // });
 
         // if (data.lectureMode == 2) {
         // }
@@ -3536,27 +3594,27 @@ const getMembersInRoom = (data) => {
   //   }
   // });
   // return customList;
-  database("lecture_members")
-    .join("users", "lecture_members.member_id", "=", "users.stu_no")
-    .select("*")
+  // database("lecture_members")
+  //   .join("users", "lecture_members.member_id", "=", "users.stu_no")
+  //   .select("*")
 
-    .where({
-      lecture_id: data.course_id,
-      day_id: data.day_id,
-      date: data.date,
-    })
-    .then((data8) => {
-      //res.send([...data, data8]);
-      console.log("updatedMembersList", data8);
-      // io.in(`${room}`).emit("updatedMembersList", data8);
+  //   .where({
+  //     lecture_id: data.course_id,
+  //     day_id: data.day_id,
+  //     date: data.date,
+  //   })
+  //   .then((data8) => {
+  //     //res.send([...data, data8]);
+  //     console.log("updatedMembersList", data8);
+  //     // io.in(`${room}`).emit("updatedMembersList", data8);
 
-      io.in(`${data.course_id}`).emit("updatedMembersList", data8);
-      io.in(`${data.course_id}`).emit("addStudentToClassFromServer", data);
-    });
+  //     io.in(`${data.course_id}`).emit("updatedMembersList", data8);
+  //     io.in(`${data.course_id}`).emit("addStudentToClassFromServer", data);
+  //   });
 
-  console.log("custom list here", customList);
+  // console.log("custom list here", customList);
 
-  return customList;
+  // return customList;
 };
 
 const checkMembers = async (namespace, roomToJoin) => {
