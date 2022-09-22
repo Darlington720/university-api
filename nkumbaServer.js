@@ -941,6 +941,57 @@ app.get("/studentsToday", (req, res) => {
     });
 });
 
+app.get("/studentsTotalBySchool/:school", (req, res) => {
+  const { school } = req.params;
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  //to be changed for the dashboard
+  database
+    .select("*")
+    .from("students_biodata")
+
+    .join(
+      "student_signin",
+      "students_biodata.stdno",
+      "=",
+      "student_signin.stu_id"
+    )
+    .join("users", "student_signin.signed_in_by", "=", "users.id")
+    // .where("students.stu_id", "=", studentNo)
+    .andWhere("student_signin.signin_date", "=", date)
+    .andWhere("students_biodata.facultycode", "=", school)
+    .orderBy("signin_time")
+    .then((data) => {
+      data.map((item) => {
+        const d2 = new Date(item.signin_date);
+        const date2 = ` ${d2.getFullYear()}-0${
+          d2.getMonth() + 1
+        }-${d2.getDate()}`;
+        item.signin_date = date2;
+      });
+      res.send(`${data.length}`);
+    });
+});
+
+app.get("/todaysLectures/:school", (req, res) => {
+  const { school } = req.params;
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  database
+    .select("*")
+    .from("timetable")
+    .leftJoin("lectures", "timetable.c_unit_id", "=", "lectures.course_unit_id")
+    .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
+    .where({
+      day_id: d.getDay(),
+      school: school,
+    })
+    .then((result) => {
+      res.send(result);
+    });
+});
+
 app.get("/studentsTodayTotal", (req, res) => {
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
