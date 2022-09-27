@@ -398,6 +398,9 @@ app.post("/myCourseUnitsToday/", (req, res) => {
 
   var moment1 = moment(`${date}`, "YYYY-MM--DD");
   // var moment1 = moment();
+  let newArr = [];
+  let lectureDetails = [];
+  let counter = 0;
 
   // arr.forEach((e) => {
   // console.log("lecture ", parseInt(e));
@@ -456,8 +459,7 @@ app.post("/myCourseUnitsToday/", (req, res) => {
     .then((data) => {
       // newArr.push(data);
       // console.log("another response herer", data);
-      let newArr = [];
-      let lectureDetails = [];
+
       data.forEach((item) => {
         // database
         //   .select("*")
@@ -556,25 +558,28 @@ app.post("/myCourseUnitsToday/", (req, res) => {
           // })
           .where("class_reps.for_wc_cu", "=", lecture.c_unit_id)
           .then((classRepInfo) => {
-            // console.log("length", newArr.length);
+            counter++;
 
+            // console.log("Index", index);
             lectureDetails.push({ ...lecture, classRepInfo });
-            // return { ...lecture, classRepInfo };
-            // console.log("index", index);
-            // res.send(lectureDetails);
 
-            if (newArr.length === index + 1) {
-              const sortedAsc = lectureDetails.sort(
+            return lectureDetails;
+          })
+          .then((data) => {
+            // console.log(`loop through ${counter}, ${newArr.length}`);
+            if (newArr.length === counter) {
+              const sortedAsc = data.sort(
                 (objA, objB) =>
                   moment(objA.start_time, "h:mmA") -
                   moment(objB.start_time, "h:mmA")
               );
-              // console.log("new arr", sortedAsc);
               res.send(sortedAsc);
+              // console.log("new arr", sortedAsc);
+              // res.send(sortedAsc);
             }
           });
       });
-      // console.log("new arr", newArr);
+      // console.log("Done");
       // console.log("length2333333", newArr.length);
 
       // res.send(newArr);
@@ -593,6 +598,7 @@ app.post("/lecturerCourseunits/", (req, res) => {
   //  console.log(req.body);
   let newArr = [];
   let lectureDetails = [];
+  let counter2 = 0;
 
   let currentTime = new Date().toLocaleTimeString();
 
@@ -706,20 +712,25 @@ app.post("/lecturerCourseunits/", (req, res) => {
               .where("class_reps.for_wc_cu", "=", lecture.c_unit_id)
               .orderBy("id")
               .then((classRepInfo) => {
+                counter2++;
                 //  console.log("lecture class Reps", classRepInfo);
 
                 lectureDetails.push({ ...lecture, classRepInfo });
                 // return { ...lecture, classRepInfo };
-                if (newArr.length === index + 1) {
-                  // console.log("lecture details ", lectureDetails);
 
-                  const sortedAsc = lectureDetails.sort(
+                return lectureDetails;
+              })
+              .then((data) => {
+                // console.log(`loop through ${counter2}, ${newArr.length}`);
+                if (newArr.length === counter2) {
+                  const sortedAsc = data.sort(
                     (objA, objB) =>
                       moment(objA.start_time, "h:mmA") -
                       moment(objB.start_time, "h:mmA")
                   );
                   res.send(sortedAsc);
-                  // console.log(sortedAsc);
+                  // console.log("new arr", sortedAsc);
+                  // res.send(sortedAsc);
                 }
               });
           });
@@ -977,6 +988,7 @@ app.get("/todaysLectures/:school", (req, res) => {
   const { school } = req.params;
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  console.log(`${d.getDay()}, ${school}`);
 
   database
     .select("*")
@@ -984,7 +996,7 @@ app.get("/todaysLectures/:school", (req, res) => {
     .leftJoin("lectures", "timetable.c_unit_id", "=", "lectures.course_unit_id")
     .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
     .where({
-      day_id: d.getDay(),
+      day_id: d.getDay() === 0 ? 7 : d.getDay(),
       school: school,
     })
     .then((result) => {
