@@ -16,6 +16,51 @@ const upload = multer();
 const app = express();
 const secret = "mySecret";
 
+var range = function (start, end, step) {
+  var range = [];
+  var typeofStart = typeof start;
+  var typeofEnd = typeof end;
+
+  if (step === 0) {
+    throw TypeError("Step cannot be zero.");
+  }
+
+  if (typeofStart == "undefined" || typeofEnd == "undefined") {
+    throw TypeError("Must pass start and end arguments.");
+  } else if (typeofStart != typeofEnd) {
+    throw TypeError("Start and end arguments must be of same type.");
+  }
+
+  typeof step == "undefined" && (step = 1);
+
+  if (end < start) {
+    step = -step;
+  }
+
+  if (typeofStart == "number") {
+    while (step > 0 ? end >= start : end <= start) {
+      range.push(start);
+      start += step;
+    }
+  } else if (typeofStart == "string") {
+    if (start.length != 1 || end.length != 1) {
+      throw TypeError("Only strings with one character are supported.");
+    }
+
+    start = start.charCodeAt(0);
+    end = end.charCodeAt(0);
+
+    while (step > 0 ? end >= start : end <= start) {
+      range.push(String.fromCharCode(start));
+      start += step;
+    }
+  } else {
+    throw TypeError("Only string and number types are supported");
+  }
+
+  return range;
+};
+
 //Each member should have a name, room, user_id, status_if_logged_in
 let members = [];
 
@@ -590,6 +635,152 @@ app.post("/myCourseUnitsToday/", (req, res) => {
   // res.send(newArr);
 });
 
+app.get("/weeklyChartData", (req, res) => {
+  let arr = [];
+  const d = new Date();
+  const myDateToday = new Date();
+  const firstDate = new Date(d.setDate(d.getDate() - d.getDay()));
+  // console.log("Sunday", firstDate.getDate());
+  const dateToday =
+    d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  const testDate = new Date("2022-09-22");
+  // console.log(
+  //   "The day is ",
+  //   myDateToday.getDay() === 0 ? 7 : myDateToday.getDay()
+  // );
+  // console.log("full date today", myDateToday);
+  let toady = myDateToday.getDay() === 0 ? 7 : myDateToday.getDay();
+  let done = false;
+  let count = toady;
+
+  let date = new Date(myDateToday.setDate(myDateToday.getDate()));
+
+  for (let i = toady; i > 0; i--) {
+    let resDate =
+      date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+
+    // setTimeout(() => {
+    date = new Date(myDateToday.setDate(myDateToday.getDate() - 1));
+    // }, 2);
+
+    // console.log("Result date ", date);
+    let ans;
+    //to be changed for the dashboard
+    let data = async (callback) => {
+      await database
+
+        .from("students_biodata")
+
+        .join(
+          "student_signin",
+          "students_biodata.stdno",
+          "=",
+          "student_signin.stu_id"
+        )
+        .join("users", "student_signin.signed_in_by", "=", "users.id")
+        // .where("students.stu_id", "=", studentNo)
+        .andWhere("student_signin.signin_date", "=", resDate)
+        .select("*")
+        .then((result) => {
+          // return result;
+          // console.log("result ", result);
+          callback(result);
+          // res = result;
+        });
+      // return res;
+      // .then((result) => {
+      //   // console.log(result);
+      //   return result;
+      // });
+      // return 0;
+    };
+
+    // .count("*")
+    // .orderBy("signin_time")
+    // .then((data) => {
+
+    data(function (result) {
+      // console.log("authenticated");
+
+      result.map((item) => {
+        const d2 = new Date(item.signin_date);
+        const date2 = ` ${d2.getFullYear()}-${
+          d2.getMonth() + 1
+        }-${d2.getDate()}`;
+        item.signin_date = date2;
+      });
+
+      // res.send(`${result.length}`);
+
+      // comment 1
+      arr[--count] = result.length;
+      // console.log(`The count is  ${count}, ${i}, [${arr}], ${resDate}`);
+      if (count === 0) res.send(arr);
+
+      // console.log(`length for ${i} = ${result.length}`);
+      // res.send(data);
+      // count--;
+      // date = new Date(myDateToday.setDate(myDateToday.getDate() - 1));
+      // return 0;
+      // console.log(result);
+      // return res.send(`${result.length}`);
+    });
+
+    // console.log("arr", arr);
+  }
+});
+
+app.get("/weeklyLectureData", (req, res) => {
+  const d = new Date();
+  const currentDate =
+    d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  var first = d.getDate() - d.getDay();
+  const firstDate = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + first;
+  let mon = 0;
+  let tue = 0;
+  let wed = 0;
+  let thur = 0;
+  let fri = 0;
+  let sat = 0;
+  let sun = 0;
+
+  let days = [1, 2, 3, 4, 5, 6, 0];
+
+  let chartData = [];
+  let arr = [];
+
+  //   console.log(num);
+
+  database
+    .select("*")
+    .from("timetable")
+    .whereBetween("day_id", [1, 2])
+    .leftJoin("lectures", "timetable.c_unit_id", "=", "lectures.course_unit_id")
+    // .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
+    // .where("lectures.date", "=", "2022-09-21")
+    // .where({
+    //   day_id: 3,
+    //   date: "2022-09-21",
+    // })
+
+    .then((result) => {
+      range(1, 2).forEach((num) => {
+        console.log(new Date(d.setDate(d.getDate() - (d.getDay() - num))));
+
+        const weeklyDate = new Date(
+          d.setDate(d.getDate() - (d.getDay() - num))
+        );
+
+        // if ()
+        // res.send(result);
+        arr.push(result);
+
+        // console.log(result);
+      });
+      res.send(arr);
+    });
+});
+
 app.post("/lecturerCourseunits/", (req, res) => {
   const { lecturer_id, day, l_date } = req.body;
   //console.log("data from ", req.params);
@@ -778,7 +969,7 @@ app.post("/updateClassRepInfo", (req, res) => {
         //   for_wc_cu: course_id,
         // })
         .then((classReps) => {
-          if (classReps.length < Math.ceil(enrolledStudents.length / 15)) {
+          if (classReps.length < 3) {
             database("users")
               .where(function () {
                 this.where("stu_no", "=", stu_no);
@@ -1004,6 +1195,26 @@ app.get("/todaysLectures/:school", (req, res) => {
     });
 });
 
+app.get("/numOftodaysLectures/:school", (req, res) => {
+  const { school } = req.params;
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  console.log(`${d.getDay()}, ${school}`);
+
+  database
+    .select("*")
+    .from("timetable")
+    .leftJoin("lectures", "timetable.c_unit_id", "=", "lectures.course_unit_id")
+    .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
+    .where({
+      day_id: d.getDay() === 0 ? 7 : d.getDay(),
+      school: school,
+    })
+    .then((result) => {
+      res.send(`${result.length}`);
+    });
+});
+
 app.get("/studentsTodayTotal", (req, res) => {
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -1090,6 +1301,35 @@ app.get("/staffToday", (req, res) => {
         item.signin_date = date2;
       });
       res.send(data);
+    });
+});
+
+app.get("/numOfstaffToday", (req, res) => {
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  //to be changed for the dashboard
+  database
+    .select("*")
+    .from("staff_signin")
+    .join(
+      "staff",
+      "staff.staff_id",
+
+      "=",
+      "staff_signin.staff_id"
+    )
+    .join("users", "staff_signin.signed_in_by", "=", "users.id")
+    .where("staff_signin.signin_date", "=", date)
+    .orderBy("signin_time")
+    .then((data) => {
+      data.map((item) => {
+        const d2 = new Date(item.signin_date);
+        const date2 = ` ${d2.getFullYear()}-${
+          d2.getMonth() + 1
+        }-${d2.getDate()}`;
+        item.signin_date = date2;
+      });
+      res.send(`${data.length}`);
     });
 });
 
@@ -1249,6 +1489,33 @@ app.get("/visitorData", (req, res) => {
         item.date = date2;
       });
       res.send(data);
+    });
+});
+
+app.get("/numOfvisitors2de", (req, res) => {
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  database("users")
+    .join(
+      "visitors",
+      "users.id",
+
+      "=",
+      "visitors.signed_in_by"
+    )
+    .where("visitors.date", "=", date)
+    .orderBy("time")
+    .select("*")
+    .then((data) => {
+      data.map((item) => {
+        const d2 = new Date(item.date);
+        const date2 = ` ${d2.getFullYear()}-${
+          d2.getMonth() + 1
+        }-${d2.getDate()}`;
+        item.date = date2;
+      });
+      res.send(`${data.length}`);
     });
 });
 
