@@ -88,8 +88,10 @@ const database = knex({
 const data = [
   "students",
   "students_biodata",
+  "gates",
   "students_signin_book",
   "visitors",
+  "campus",
   "staff_signin",
   "non_teaching_staff",
   "stu_signin",
@@ -125,6 +127,22 @@ data.map((item) =>
   })
 );
 
+app.get(`/gates/:campus`, (req, res) => {
+  const { campus } = req.params;
+  console.log(req.params);
+  database
+    // .orderBy("id")
+    .select("*")
+    .from("gates")
+    .join("campus", "gates.campus_id", "=", "campus.cam_id")
+    .where({
+      campus_id: campus,
+    })
+    .then((data) => {
+      res.send(data);
+    });
+});
+
 app.get(`/allCourseUnits/:course_code`, (req, res) => {
   const { course_code } = req.params;
   database
@@ -136,6 +154,27 @@ app.get(`/allCourseUnits/:course_code`, (req, res) => {
     })
     .then((data) => {
       res.send(data);
+    });
+});
+
+app.get(`/numOfStaffClockIn`, (req, res) => {
+  database
+    // .orderBy("id")
+    .select("*")
+    .from("staff")
+    .leftJoin("staff_signin", "staff.staff_id", "staff_signin.staff_id")
+    // .count("staff_signin.staff_id")
+    .then((data) => {
+      console.log("result againt", data);
+      res.send(data);
+      // database
+      //   .select("*")
+
+      //   .from("staff_signin")
+      //   .where("staff_id", "=", staff_member.staff_id)
+      //   .then((d2) => console.log("Result then", d2));
+
+      // res.send(data);
     });
 });
 
@@ -301,7 +340,7 @@ app.post("/addConstraint", (req, res) => {
 
 app.post("/updateConstraint/", (req, res) => {
   const { c_id, c_name, c_percentage } = req.body;
-  //console.log(req.body);
+  // console.log(req.body);
 
   database("constraints")
     .where(function () {
@@ -313,6 +352,7 @@ app.post("/updateConstraint/", (req, res) => {
     })
     .then((data) => {
       res.send("updated the data");
+      console.log("Data here", data);
     })
     .catch((err) => res.send(err));
 });
@@ -1241,6 +1281,53 @@ app.get("/studentsTodayTotal", (req, res) => {
         }-${d2.getDate()}`;
         item.signin_date = date2;
       });
+      res.send(`${data.length}`);
+    });
+});
+
+//Number of students 2de for the given campus
+app.get("/studentsTodayTotalByCampus/:campus", (req, res) => {
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  const { campus } = req.params;
+  //to be changed for the dashboard
+  database
+    .select("*")
+    .from("students_biodata")
+
+    .join(
+      "student_signin",
+      "students_biodata.stdno",
+      "=",
+      "student_signin.stu_id"
+    )
+    .join("users", "student_signin.signed_in_by", "=", "users.id")
+    .join("gates", "student_signin.gate_id", "=", "gates.id")
+    .where("gates.campus_id", "=", campus)
+    .andWhere("student_signin.signin_date", "=", date)
+    .orderBy("signin_time")
+    .then((data) => {
+      data.map((item) => {
+        const d2 = new Date(item.signin_date);
+        const date2 = ` ${d2.getFullYear()}-0${
+          d2.getMonth() + 1
+        }-${d2.getDate()}`;
+        item.signin_date = date2;
+      });
+      res.send(`${data.length}`);
+    });
+});
+
+//Number of students all for the given campus
+app.get("/numOfStudentsByCampus/:campus", (req, res) => {
+  // let camp = "Main campus";
+  const { campus } = req.params;
+  database
+    .select("*")
+    .from("students_biodata")
+    .join("campus", "campus.campus_name", "=", "students_biodata.campus")
+    .where("campus.cam_id", "=", campus)
+    .then((data) => {
       res.send(`${data.length}`);
     });
 });
@@ -2410,8 +2497,15 @@ app.post("/gateReg", (req, res) => {
 // });
 
 app.post("/studentReg", (req, res) => {
-  const { stu_id, temp, signed_in_by, signed_in, signin_gate, studentBioData } =
-    req.body;
+  const {
+    stu_id,
+    temp,
+    signed_in_by,
+    signed_in,
+    signin_gate,
+    studentBioData,
+    gate_id,
+  } = req.body;
   //console.log("reg data", req.body);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -2477,6 +2571,7 @@ app.post("/studentReg", (req, res) => {
             signin_date: date,
             signin_time: time,
             signed_in_by,
+            gate_id: gate_id,
           })
           .then((data) => {
             database("stu_signin")
