@@ -225,6 +225,7 @@ app.get(`/studentsPerSchool/:school`, (req, res) => {
 app.get("/image/:id", (req, res) => {
   const { id } = req.params;
   //console.log("Id", id);
+  console.log("Current directory", __dirname);
   // res.send("http://10.7.0.22:9000/assets/jacket.jpg");
 
   fs.readFile(
@@ -2240,6 +2241,80 @@ app.get("/student/:studentNo", (req, res) => {
   //   });
 });
 
+app.get("/voter/:studentNo", (req, res) => {
+  const { studentNo } = req.params;
+  const userId = 1;
+  console.log("number", studentNo);
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  database
+    .select("*")
+    .from("voters")
+    .where({
+      voter_stdno: studentNo,
+      r_date: date,
+    })
+    .then((result) => {
+      database
+        .select("*")
+        .from("constraints")
+        .then((result2) => {
+          if (result.length) {
+            console.log("true------");
+            res.send({
+              alreadyVoted: "true",
+              requiredPercentage: result2[0].c_percentage,
+            });
+          } else {
+            console.log("False-----");
+            res.send({
+              alreadyVoted: "false",
+              requiredPercentage: result2[0].c_percentage,
+            });
+          }
+          console.log("The percentage ", result2[0].c_percentage);
+        });
+    });
+});
+
+app.post("/addVoter", (req, res) => {
+  const { studentNo, registered_by, campus } = req.body;
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  const time = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
+  //console.log(req.body);
+
+  //first checking if voter exists
+  database
+    .select("*")
+    .from("voters")
+    .where({
+      voter_stdno: studentNo,
+      r_date: date,
+    })
+    .then((result) => {
+      if (result.length === 0) {
+        //No voter with such credentials
+        //adding him
+        database("voters")
+          .insert({
+            voter_stdno: studentNo,
+            registered_by,
+            r_time: time,
+            r_date: date,
+            campus: campus,
+          })
+          .then((data) => res.status(200).send("Received voter data"))
+          .catch((err) =>
+            res.status(400).send("Failed to send the data " + err)
+          );
+      } else {
+        res.send("Voter already voted");
+      }
+    });
+});
+
 app.get("/staff/:staffNo", (req, res) => {
   const { staffNo } = req.params;
   const userId = 1;
@@ -3111,6 +3186,7 @@ app.post("/api/addVisitor", (req, res) => {
   const { full_name, reason, office, signed_in_by, signin_gate } = req.body;
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
   //console.log(req.body);
   database("visitors")
     .insert({
