@@ -101,6 +101,8 @@ const data = [
   "lectures",
   "course_units",
   "users",
+  "constraints",
+  "Voters",
 ];
 
 data.map((item) =>
@@ -165,16 +167,31 @@ app.get(`/numOfStaffClockIn`, (req, res) => {
     .leftJoin("staff_signin", "staff.staff_id", "staff_signin.staff_id")
     // .count("staff_signin.staff_id")
     .then((data) => {
-      console.log("result againt", data);
+      // console.log("result againt", data);
       res.send(data);
-      // database
-      //   .select("*")
+    });
+});
 
-      //   .from("staff_signin")
-      //   .where("staff_id", "=", staff_member.staff_id)
-      //   .then((d2) => console.log("Result then", d2));
-
-      // res.send(data);
+app.get(`/voters/:campus_id`, (req, res) => {
+  const { campus_id } = req.params;
+  database
+    // .orderBy("id")
+    .select(
+      "name",
+      "stdno",
+      "r_time",
+      "students_biodata.campus",
+      "userfull_name",
+      "cam_id"
+    )
+    .from("voters")
+    .join("students_biodata", "voters.voter_stdno", "students_biodata.stdno")
+    .join("users", "voters.registered_by", "users.id")
+    .join("campus", "voters.campus", "campus.campus_name")
+    .where("campus.cam_id", "=", campus_id)
+    .then((data) => {
+      // console.log("result againt", data);
+      res.send(data);
     });
 });
 
@@ -1143,7 +1160,7 @@ app.post("/getCustomReports/", (req, res) => {
         .then((data) => {
           data.map((item) => {
             const d2 = new Date(item.date);
-            const date2 = ` ${d2.getFullYear()}-0${
+            const date2 = ` ${d2.getFullYear()}-${
               d2.getMonth() + 1
             }-${d2.getDate()}`;
             item.date = date2;
@@ -1175,7 +1192,7 @@ app.get("/studentsToday", (req, res) => {
     .then((data) => {
       data.map((item) => {
         const d2 = new Date(item.signin_date);
-        const date2 = ` ${d2.getFullYear()}-0${
+        const date2 = ` ${d2.getFullYear()}-${
           d2.getMonth() + 1
         }-${d2.getDate()}`;
         item.signin_date = date2;
@@ -1207,7 +1224,7 @@ app.get("/studentsTotalBySchool/:school", (req, res) => {
     .then((data) => {
       data.map((item) => {
         const d2 = new Date(item.signin_date);
-        const date2 = ` ${d2.getFullYear()}-0${
+        const date2 = ` ${d2.getFullYear()}-${
           d2.getMonth() + 1
         }-${d2.getDate()}`;
         item.signin_date = date2;
@@ -1310,7 +1327,7 @@ app.get("/studentsTodayTotalByCampus/:campus", (req, res) => {
     .then((data) => {
       data.map((item) => {
         const d2 = new Date(item.signin_date);
-        const date2 = ` ${d2.getFullYear()}-0${
+        const date2 = ` ${d2.getFullYear()}-${
           d2.getMonth() + 1
         }-${d2.getDate()}`;
         item.signin_date = date2;
@@ -1654,6 +1671,23 @@ app.get("/myStudents/:user_id", (req, res) => {
     })
     .then((data) => {
       res.send(data);
+    });
+});
+
+app.get("/myRegisteredStudents/:user_id", (req, res) => {
+  const { user_id } = req.params;
+  console.log(user_id);
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  database("voters")
+    .select("*")
+    .where({
+      registered_by: user_id,
+      r_date: date,
+    })
+    .then((data) => {
+      res.send(`${data.length}`);
     });
 });
 
@@ -2259,6 +2293,7 @@ app.get("/voter/:studentNo", (req, res) => {
       database
         .select("*")
         .from("constraints")
+        .where("c_name", "=", "Voting")
         .then((result2) => {
           if (result.length) {
             console.log("true------");
