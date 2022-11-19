@@ -11,6 +11,7 @@ const req = require("express/lib/request");
 const moment = require("moment");
 const { sendPushNotifications } = require("./pushNotifications");
 var { baseIp, port } = require("./config");
+const { finished } = require("stream");
 
 const upload = multer();
 const app = express();
@@ -103,6 +104,11 @@ const data = [
   "users",
   "constraints",
   "Voters",
+  "rooms",
+  "exam_sessions",
+  "modules",
+  "study_time",
+  "schools",
 ];
 
 data.map((item) =>
@@ -180,12 +186,17 @@ app.get(`/voters/:campus_id`, (req, res) => {
       "name",
       "stdno",
       "r_time",
-      "students_biodata.campus",
+      "campus.campus_name",
+      "voter_stdno",
       "userfull_name",
       "cam_id"
     )
     .from("voters")
-    .join("students_biodata", "voters.voter_stdno", "students_biodata.stdno")
+    .leftJoin(
+      "students_biodata",
+      "voters.voter_stdno",
+      "students_biodata.stdno"
+    )
     .join("users", "voters.registered_by", "users.id")
     .join("campus", "voters.campus", "campus.campus_name")
     .where("campus.cam_id", "=", campus_id)
@@ -421,7 +432,7 @@ app.post("/myCourseUnitsTodayDashboard/", (req, res) => {
   // console.log(lectures.split(","));
 
   // console.log(Array.isArray(req.body));
-  console.log("received data", req.body);
+  // console.log("received data", req.body);
   // console.log("from the client ", req.body.my_array);
   // console.log("from the client ", req.body.day);
   const d = new Date();
@@ -1468,7 +1479,6 @@ app.get("/allstaffdetails/:staff_id", (req, res) => {
       database
         .select("*")
         .from("staff")
-
         .join(
           "staff_signin_details",
           "staff.staff_id",
@@ -3102,6 +3112,25 @@ app.get("/getEnrolledStudents/:course_id", (req, res) => {
     });
 });
 
+app.get("/getEnrolledStudents/:course_id", (req, res) => {
+  const { course_id } = req.params;
+  //console.log("enrollment sent records", req.params);
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  database("stu_selected_course_units")
+    .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
+    .select("*")
+
+    .where({
+      course_id,
+    })
+    .then((data) => {
+      //console.log("Enrolled students here", data);
+      res.send(data);
+    });
+});
+
 app.post("/api/login", (req, res) => {
   const { username, password, token } = req.body;
   // console.log(req.body);
@@ -3217,6 +3246,21 @@ app.post("/api/removeToken", (req, res) => {
     });
 });
 
+app.post("/api/addRoom", (req, res) => {
+  const { roomName } = req.body;
+  // console.log("Data", req.body);
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  //console.log(req.body);
+  database("rooms")
+    .insert({
+      room_name: roomName,
+    })
+    .then((data) => res.status(200).send("success"))
+    .catch((err) => res.status(400).send("Failed to send the data " + err));
+});
+
 app.post("/api/addVisitor", (req, res) => {
   const { full_name, reason, office, signed_in_by, signin_gate } = req.body;
   const d = new Date();
@@ -3234,6 +3278,648 @@ app.post("/api/addVisitor", (req, res) => {
     })
     .then((data) => res.status(200).send("Received the data"))
     .catch((err) => res.status(400).send("Failed to send the data " + err));
+});
+
+app.post("/api/addExamTimetable", (req, res) => {
+  const { headers, timetable } = req.body;
+  // console.log("Data received", req.body);
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  //inserting into the exams group
+  database
+    .select("*")
+    .where({
+      school_id: headers.school.value,
+      study_time_id: headers.studyTime.value,
+      month: headers.month.value,
+      year: headers.year.value,
+    })
+    .from("exam_groups")
+    .then((d) => {
+      if (d.length == 0) {
+        database("exam_groups")
+          .insert({
+            school_id: headers.school.value,
+            study_time_id: headers.studyTime.value,
+            month: headers.month.value,
+            year: headers.year.value,
+          })
+          .then((data) => {
+            console.log("Finished storing data in exam groups");
+
+            database
+              .select("*")
+              .where({
+                school_id: headers.school.value,
+                study_time_id: headers.studyTime.value,
+                month: headers.month.value,
+                year: headers.year.value,
+              })
+              .from("exam_groups")
+              .then((data2) => {
+                console.log("data here", data2);
+                const fieldsToInsert = timetable.map((field) => ({
+                  exam_group_id: data2[0].exam_group_id,
+                  date:
+                    new Date(field.date).getFullYear() +
+                    "-" +
+                    (new Date(field.date).getMonth() + 1) +
+                    "-" +
+                    new Date(field.date).getDate(),
+                  session_id: field.session.value,
+                  room_id: field.room.value,
+                  course_unit_code: field.courseUnit.value,
+                  course_unit_name: field.courseUnit.label,
+                }));
+
+                database("exam_timetable")
+                  .insert(fieldsToInsert)
+                  .then(() => {
+                    res.status(200).send("Success");
+                  })
+                  .catch((err) => {
+                    console.log("Failed to save the data", err);
+                    res.status(400).send("fail");
+                  });
+              });
+
+            // res.status(200).send("Received the data");
+          })
+          .catch((err) => {
+            console.log("Fail", err);
+            res.status(400).send("Failed to send the data " + err);
+          });
+      } else {
+        database
+          .select("*")
+          .where({
+            school_id: headers.school.value,
+            study_time_id: headers.studyTime.value,
+            month: headers.month.value,
+            year: headers.year.value,
+          })
+          .from("exam_groups")
+          .then((data2) => {
+            console.log("data here", data2);
+            const fieldsToInsert = timetable.map((field) => ({
+              exam_group_id: data2[0].exam_group_id,
+              date:
+                new Date(field.date).getFullYear() +
+                "-" +
+                (new Date(field.date).getMonth() + 1) +
+                "-" +
+                new Date(field.date).getDate(),
+              session_id: field.session.value,
+              room_id: field.room.value,
+              course_unit_code: field.courseUnit.value,
+              course_unit_name: field.courseUnit.label,
+            }));
+
+            database("exam_timetable")
+              .insert(fieldsToInsert)
+              .then(() => {
+                res.status(200).send("Success");
+              })
+              .catch((err) => {
+                console.log("Failed to save the data", err);
+                res.status(400).send("fail");
+              });
+          });
+      }
+    });
+});
+
+app.post("/api/exams", (req, res) => {
+  const { date, room, session } = req.body;
+  // console.log("Data got", req.body);
+  database
+    .select("course_unit_code", "course_unit_name")
+    .where({
+      date:
+        new Date(date).getFullYear() +
+        "-" +
+        (new Date(date).getMonth() + 1) +
+        "-" +
+        new Date(date).getDate(),
+      room_id: room.value,
+      session_id: session.value,
+    })
+    .from("exam_timetable")
+    .then((data) => {
+      res.send(data);
+    })
+    .catch((err) => console.log("error ", err));
+});
+
+app.post("/api/invigilatorData", (req, res) => {
+  const { date, room, session } = req.body;
+
+  const d =
+    new Date(date).getFullYear() +
+    "-" +
+    (new Date(date).getMonth() + 1) +
+    "-" +
+    new Date(date).getDate();
+  console.log("Data got", req.body);
+  database
+    .select("*")
+    // .where({
+    //   assigned_date: date,
+    //   room_id: room,
+    //   session_id: session,
+    // })
+    .from("invigilators")
+    .join("staff", "invigilators.lecturer_id", "=", "staff.staff_id")
+    .join("rooms", "invigilators.room_id", "=", "rooms.room_id")
+    .join("exam_sessions", "invigilators.session_id", "=", "exam_sessions.s_id")
+
+    .where("invigilators.room_id", "=", room)
+    .andWhere("invigilators.assigned_date", "=", d)
+    .andWhere("invigilators.session_id", "=", session)
+    // .join("exam_timetable", function () {
+    //   this.on("invigilators.assigned_date", "=", "exam_timetable.date")
+    //     .andOn("invigilators.room_id", "=", "exam_timetable.room_id")
+    //     .andOn("invigilators.session_id", "=", "exam_timetable.session_id");
+    // })
+    // .where(function () {
+    //   this.where("invigilators.assigned_date", "=", date)
+    //     .andWhere("invigilators.room_id", "=", room)
+    //     .andWhere("invigilators.session_id", "=", session);
+    // })
+    .then((invData) => {
+      database
+        .select("*")
+        .where({
+          date: d,
+          room_id: room,
+          session_id: session,
+        })
+        .from("exam_timetable")
+        .then((exData) => {
+          const data = {
+            invigilators: invData,
+            exams: exData,
+          };
+          res.send(data);
+        });
+    })
+    .catch((err) => console.log("error ", err));
+});
+
+app.post("/api/updateRoomStatus", (req, res) => {
+  const { lecturerId, roomId, assignedDate, sessionId } = req.body;
+
+  const d = new Date(assignedDate);
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  console.log("Room DATA", req.body);
+  database
+    .select("*")
+    .from("invigilators")
+    .where({
+      room_id: roomId,
+      assigned_date: date,
+      session_id: sessionId,
+      lecturer_id: lecturerId,
+    })
+    .update({
+      status: 1,
+    })
+    .then((data2) => {
+      database
+        .select("*")
+        .from("invigilators_sammary")
+        .where({
+          room_id: roomId,
+          assigned_date: date,
+          session_id: sessionId,
+        })
+        .update({
+          status: 1,
+        })
+        .then((data) => {
+          console.log("Updated the sammary as well");
+        });
+      res.send(`updated room id ${roomId} status to started`);
+    });
+});
+
+app.post("/api/getMyAssignedExams", (req, res) => {
+  const { date, lecturer_id } = req.body;
+
+  const d =
+    new Date(date).getFullYear() +
+    "-" +
+    (new Date(date).getMonth() + 1) +
+    "-" +
+    new Date(date).getDate();
+
+  let newArr = [];
+
+  console.log("Data got", req.body);
+  const dd = new Date("2022-11-24");
+  const current_date =
+    dd.getFullYear() + "-" + (dd.getMonth() + 1) + "-" + dd.getDate();
+
+  console.log("Today is ", current_date);
+  var m1 = moment(`${current_date} 7:00AM`, "YYYY-MM--DD h:mmA");
+  // var m1 = moment();
+
+  var moment1 = moment(`${current_date}`, "YYYY-MM--DD");
+  // var moment1 = moment();
+  database
+    .select("*")
+    // .where({
+    //   assigned_date: date,
+    //   room_id: room,
+    //   session_id: session,
+    // })
+    .from("invigilators")
+    .join("staff", "invigilators.lecturer_id", "=", "staff.staff_id")
+    .join("rooms", "invigilators.room_id", "=", "rooms.room_id")
+    .join("exam_sessions", "invigilators.session_id", "=", "exam_sessions.s_id")
+
+    .where("invigilators.lecturer_id", "=", lecturer_id)
+    .andWhere("invigilators.assigned_date", "=", d)
+    // .andWhere("invigilators.session_id", "=", session)
+    // .join("exam_timetable", function () {
+    //   this.on("invigilators.assigned_date", "=", "exam_timetable.date")
+    //     .andOn("invigilators.room_id", "=", "exam_timetable.room_id")
+    //     .andOn("invigilators.session_id", "=", "exam_timetable.session_id");
+    // })
+    // .where(function () {
+    //   this.where("invigilators.assigned_date", "=", date)
+    //     .andWhere("invigilators.room_id", "=", room)
+    //     .andWhere("invigilators.session_id", "=", session);
+    // })
+    .then((invData) => {
+      invData.forEach((invigilatorData, index) => {
+        var m2 = moment(`${d} `, "YYYY-MM--DD h:mmA");
+
+        var moment2 = moment(`${d}`, "YYYY-MM--DD");
+        console.log(
+          "duration here",
+          moment.duration(moment2.diff(moment1))._data.days
+        );
+
+        if (moment.duration(moment2.diff(moment1))._data.days > 0) {
+          // console.log(moment.duration(moment2.diff(moment1))._data.days);
+          // console.log("Lecture is not supposed to be taught now");
+          newArr.push({ ...invigilatorData, inv_status: "not now" });
+          // console.log({ ...item, status: "not now" });
+        } else {
+          if (moment.duration(moment2.diff(moment1))._data.days == 0) {
+            newArr.push({ ...invigilatorData, inv_status: "on" });
+          } else if (m1.isBefore(m2)) {
+            // console.log({ ...item, status: "on" });
+            newArr.push({ ...invigilatorData, inv_status: "off" });
+            // console.log("Lecture is still on");
+          } else {
+            // console.log({ ...item, status: "off" });
+            newArr.push({ ...invigilatorData, inv_status: "off" });
+            // console.log("Lecture is supposed to have ended");
+          }
+        }
+
+        // newArr.push(item);
+
+        // console.log({ ...item, ...data3[0] });
+
+        // console.log(item.c_unit_id, reqItem);
+      });
+
+      console.log("invData", newArr);
+
+      res.send(newArr);
+    })
+    .catch((err) => console.log("error ", err));
+});
+
+app.post("/api/saveRegisteredModule", (req, res) => {
+  // const { room, invigilators, session, date, status, assigned_by } = req.body;
+  console.log("Data Received", req.body);
+  const d = new Date();
+  const formatedDate =
+    d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  console.log("Formated", formatedDate);
+  console.log("Formated time", d.toLocaleTimeString());
+
+  database("modules_registered")
+    .insert({
+      module_code: req.body.module_code,
+      module_title: req.body.module_title,
+      module_sem: req.body.module_sem,
+      module_status: req.body.module_status,
+      module_year: req.body.module_year,
+      yrsem: req.body.yrsem,
+      credit_units: req.body.credit_units,
+      stdno: req.body.stdno,
+      registered_by: req.body.registered_by,
+      time_in: d.toLocaleTimeString(),
+      date_start: formatedDate,
+    })
+    .then((data) => {
+      res.status(200).send("received the data");
+      // const fieldsToInsert = invigilators.map((invigilator) => ({
+      //   lecturer_id: invigilator.value,
+      //   room_id: room.value,
+      //   assigned_date: formatedDate,
+      //   session_id: session.value,
+      //   status,
+      //   assigned_by,
+      // }));
+      // //console.log(req.body);
+
+      // database("invigilators")
+      //   .insert(fieldsToInsert)
+      //   .then((data) => res.status(200).send("Received the data"))
+      //   .catch((err) => res.status(400).send("Failed to send the data " + err));
+    })
+    .catch((err) => res.status(400).send("Failed to send the data " + err));
+});
+
+app.post("/api/examHandin", (req, res) => {
+  // const { room, invigilators, session, date, status, assigned_by } = req.body;
+  console.log("Data Received for handin", req.body);
+  const d = new Date();
+  const formatedDate =
+    d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  console.log("Formated", formatedDate);
+  console.log("Formated time", d.toLocaleTimeString());
+
+  database("students_handin")
+    .insert({
+      module_reg_id: req.body.moduleRegId,
+      time_handin: d.toLocaleTimeString(),
+      date_handin: formatedDate,
+    })
+    .then((data) => {
+      res.status(200).send("received the data");
+    })
+    .catch((err) => res.status(400).send("Failed to send the data " + err));
+});
+
+app.post("/api/addStudentBookletNos", (req, res) => {
+  // const { room, invigilators, session, date, status, assigned_by } = req.body;
+  console.log("Data Received", req.body);
+  let finished = false;
+  const d = new Date();
+  const formatedDate =
+    d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  console.log("Formated", formatedDate);
+  console.log("Formated time", d.toLocaleTimeString());
+
+  const fieldsToInsert = req.body.bookletNos.map((b) => ({
+    module_reg_id: req.body.module_reg_id,
+    booklet_no: b.booklet_no,
+  }));
+
+  // console.log("Fields to insert", fieldsToInsert);
+
+  // const query = database("student_registered_booklets")
+  //   .insert(fieldsToInsert)
+  //   .toSQL();
+  // const sql = query.sql.replace("insert", "insert ignore");
+  // database
+  //   .raw(sql, query.bindings)
+  //   .then((data) => res.status(200).send("Received the data"))
+  //   .catch((err) => res.status(400).send("Failed to send the data " + err));
+  req.body.bookletNos.map((b) => {
+    database
+      .select("*")
+      .from("student_registered_booklets")
+      .where({
+        module_reg_id: req.body.module_reg_id,
+        booklet_no: b.booklet_no,
+      })
+      .then((data) => {
+        if (data.length == 0) {
+          database("student_registered_booklets")
+            .insert({
+              module_reg_id: req.body.module_reg_id,
+              booklet_no: b.booklet_no,
+            })
+            .then((data) => console.log("Saved", b.booklet_no));
+          // .catch((err) =>
+          //   res.status(400).send("Failed to send the data " + err)
+          // );
+        }
+      });
+  });
+
+  res.send("Received the data");
+  // database
+  //   .select("*")
+  //   .from("student_registered_booklets")
+  //   .where({
+  //     module_reg_id: 7,
+  //     booklet_no: "6000",
+  //   })
+  //   .then((data) => {
+  //     if (data.length == 0) {
+  //       database("student_registered_booklets")
+  //         .insert(fieldsToInsert)
+  //         .then((data) => res.status(200).send("Received the data"))
+  //         .catch((err) =>
+  //           res.status(400).send("Failed to send the data " + err)
+  //         );
+  //     } else {
+  //       res.status(200).send("Received the data");
+  //     }
+  //   });
+
+  // database("student_registered_booklets")
+  //   .insert(fieldsToInsert)
+  //   .then((data) => res.status(200).send("Received the data"))
+  //   .catch((err) => res.status(400).send("Failed to send the data " + err));
+
+  // database("modules_registered")
+  //   .insert({
+  //     module_code: req.body.module_code,
+  //     module_title: req.body.module_title,
+  //     module_sem: req.body.module_sem,
+  //     module_status: req.body.module_status,
+  //     module_year: req.body.module_year,
+  //     yrsem: req.body.yrsem,
+  //     credit_units: req.body.credit_units,
+  //     stdno: req.body.stdno,
+  //     registered_by: req.body.registered_by,
+  //     time_in: d.toLocaleTimeString(),
+  //     date_start: formatedDate,
+  //   })
+  //   .then((data) => {
+  //     res.status(200).send("received the data");
+  //     // const fieldsToInsert = invigilators.map((invigilator) => ({
+  //     //   lecturer_id: invigilator.value,
+  //     //   room_id: room.value,
+  //     //   assigned_date: formatedDate,
+  //     //   session_id: session.value,
+  //     //   status,
+  //     //   assigned_by,
+  //     // }));
+  //     // //console.log(req.body);
+
+  //     // database("invigilators")
+  //     //   .insert(fieldsToInsert)
+  //     //   .then((data) => res.status(200).send("Received the data"))
+  //     //   .catch((err) => res.status(400).send("Failed to send the data " + err));
+  //   })
+  //   .catch((err) => res.status(400).send("Failed to send the data " + err));
+});
+
+app.get("/api/getStudentRegBookletNos/:moduleRegId", (req, res) => {
+  // const { room, invigilators, session, date, status, assigned_by } = req.body;
+  const { moduleRegId } = req.params;
+  console.log("Data Received", req.params);
+  const d = new Date();
+  const formatedDate =
+    d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  database
+    .select("*")
+    .from("student_registered_booklets")
+    .where({
+      module_reg_id: moduleRegId,
+    })
+    .then((data) => {
+      res.send(data);
+    });
+});
+
+app.get("/api/getStudentRegisteredModules/:studentNo", (req, res) => {
+  const { studentNo } = req.params;
+  database
+    .select("*")
+    .from("modules_registered")
+    .leftJoin(
+      "students_handin",
+      "modules_registered.cunit_reg_id",
+      "=",
+      "students_handin.module_reg_id"
+    )
+
+    .where("modules_registered.stdno", "=", studentNo)
+
+    .then((data) => {
+      res.send(data);
+    });
+});
+
+app.post("/api/addInvigilator", (req, res) => {
+  const { room, invigilators, session, date, status, assigned_by } = req.body;
+  console.log("Date received", date);
+  const d = new Date(date);
+  const formatedDate =
+    d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  console.log("Formated", formatedDate);
+
+  database("invigilators_sammary")
+    .insert({
+      lecturer_id: invigilators[0].value,
+      room_id: room.value,
+      assigned_date: formatedDate,
+      session_id: session.value,
+      status,
+      assigned_by,
+    })
+    .then((data) => {
+      const fieldsToInsert = invigilators.map((invigilator) => ({
+        lecturer_id: invigilator.value,
+        room_id: room.value,
+        assigned_date: formatedDate,
+        session_id: session.value,
+        status,
+        assigned_by,
+      }));
+      //console.log(req.body);
+
+      database("invigilators")
+        .insert(fieldsToInsert)
+        .then((data) => res.status(200).send("Received the data"))
+        .catch((err) => res.status(400).send("Failed to send the data " + err));
+    })
+    .catch((err) => res.status(400).send("Failed to send the data " + err));
+});
+
+app.get("/invigilators/", (req, res) => {
+  const userId = 1;
+  //console.log("number", lecture_id);
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  database
+    .select("*")
+    .from("invigilators")
+    .join("staff", "invigilators.lecturer_id", "=", "staff.id")
+    .join("rooms", "invigilators.room_id", "=", "rooms.room_id")
+    .join("exam_sessions", "invigilators.session_id", "=", "exam_sessions.s_id")
+
+    // .andWhere("student_signin.signin_date", "=", date)
+
+    .then((data) => {
+      res.send(data);
+    });
+});
+
+app.get("/invigilator_sammary/", (req, res) => {
+  database
+    .select(
+      "staff_name",
+      "room_name",
+      "assigned_date",
+      "session_name",
+      "status",
+      "assigned_by",
+      "invigilators_sammary.room_id",
+      "invigilators_sammary.session_id"
+    )
+    .from("invigilators_sammary")
+    .join("staff", "invigilators_sammary.lecturer_id", "=", "staff.staff_id")
+    .join("rooms", "invigilators_sammary.room_id", "=", "rooms.room_id")
+    .join(
+      "exam_sessions",
+      "invigilators_sammary.session_id",
+      "=",
+      "exam_sessions.s_id"
+    )
+    .orderBy("i_id")
+
+    // .andWhere("student_signin.signin_date", "=", date)
+
+    .then((data) => {
+      res.send(data);
+    });
+});
+
+app.get("/invigilator_details/", (req, res) => {
+  const { room_id, date, session_id } = req.body;
+  const userId = 1;
+  //console.log("number", lecture_id);
+  const d = new Date();
+  // const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  database
+    .select("*")
+    .from("invigilators")
+    // .where({
+    //   // room_id: room_id,
+    //   assigned_date: date,
+    //   session_id: session_id,
+    // })
+    .join("staff", "invigilators.lecturer_id", "=", "staff.staff_id")
+    .join("rooms", "invigilators.room_id", "=", "rooms.room_id")
+    .join("exam_sessions", "invigilators.session_id", "=", "exam_sessions.s_id")
+
+    .where("invigilators.room_id", "=", room_id)
+    .andWhere("invigilators.assigned_date", "=", date)
+
+    .then((data) => {
+      res.send(data);
+    });
 });
 
 app.post("/lectureHasEnded", (req, res) => {
