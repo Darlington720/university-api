@@ -151,6 +151,22 @@ app.get(`/gates/:campus`, (req, res) => {
     });
 });
 
+app.get(`/studentBiodata/:stdno`, (req, res) => {
+  const { stdno } = req.params;
+  console.log(req.params);
+  database
+    // .orderBy("id")
+    .select("*")
+    .from("students_biodata")
+    // .join("campus", "gates.campus_id", "=", "campus.cam_id")
+    .where({
+      stdno,
+    })
+    .then((data) => {
+      res.send(data);
+    });
+});
+
 app.get(`/allCourseUnits/:course_code`, (req, res) => {
   const { course_code } = req.params;
   database
@@ -2367,28 +2383,6 @@ app.get("/staff/:staffNo", (req, res) => {
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 
-  // database
-  //   .select("*")
-  //   .from("stu_signin")
-  //   .join("students", "stu_signin.stu_id", "=", "students.stu_id")
-
-  // database
-  //   .select("*")
-  //   .from("staff")
-
-  //   .join(
-  //     "staff_signin",
-  //     "staff.staff_id",
-  //     "=",
-  //     "staff_signin.staff_id"
-  //   )
-
-  //   .where("staff.staff_id", "=", staffNo)
-  //   .andWhere("staff_signin.signin_date", "=", date)
-
-  //   .then((data2) => {
-  // res.send(data3);
-
   database
     .select("*")
     .from("staff")
@@ -3535,7 +3529,7 @@ app.post("/api/updateRoomStatus", (req, res) => {
       room_id: roomId,
       assigned_date: date,
       session_id: sessionId,
-      lecturer_id: lecturerId,
+      // lecturer_id: lecturerId,
     })
     .update({
       status: 1,
@@ -3575,7 +3569,7 @@ app.post("/api/endRoomSession", (req, res) => {
       room_id: req.body.room_id,
       assigned_date: date,
       session_id: req.body.session_id,
-      lecturer_id: req.body.staff_id,
+      // lecturer_id: req.body.staff_id,
     })
     .update({
       status: 2,
@@ -3766,7 +3760,7 @@ app.post("/api/saveExemption", (req, res) => {
   // console.log("Formated", formatedDate);
   // console.log("Formated time", d.toLocaleTimeString());
 
-  console.log("Data received here", req.body);
+  // console.log("Data received here", req.body);
 
   //checking if any student has already come for the specified unit
   database
@@ -4068,6 +4062,8 @@ app.get("/api/getStudentRegBookletNos/:moduleRegId", (req, res) => {
 
 app.get("/api/getStudentRegisteredModules/:studentNo", (req, res) => {
   const { studentNo } = req.params;
+
+  console.log("Student data", studentNo);
   database
     .select("*")
     .from("modules_registered")
@@ -4095,39 +4091,169 @@ app.get("/api/getStudentRegisteredModules/:studentNo", (req, res) => {
 
 app.post("/api/addInvigilator", (req, res) => {
   const { room, invigilators, session, date, status, assigned_by } = req.body;
-  console.log("Date received", date);
+  // console.log("Date received", date);
+  console.log("data got here", req.body);
   const d = new Date(date);
   const formatedDate =
     d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 
   console.log("Formated", formatedDate);
 
-  database("invigilators_sammary")
-    .insert({
+  const d2 = new Date();
+
+  database
+    .select("*")
+    .where({
       lecturer_id: invigilators[0].value,
       room_id: room.value,
       assigned_date: formatedDate,
       session_id: session.value,
       status,
       assigned_by,
+      // time_start: d2.toLocaleTimeString(),
     })
-    .then((data) => {
-      const fieldsToInsert = invigilators.map((invigilator) => ({
-        lecturer_id: invigilator.value,
-        room_id: room.value,
-        assigned_date: formatedDate,
-        session_id: session.value,
-        status,
-        assigned_by,
-      }));
-      //console.log(req.body);
+    .from("invigilators_sammary")
+    .then((invigilatoData) => {
+      if (invigilatoData.length == 0) {
+        database("invigilators_sammary")
+          .insert({
+            lecturer_id: invigilators[0].value,
+            room_id: room.value,
+            assigned_date: formatedDate,
+            session_id: session.value,
+            status,
+            assigned_by,
+            time_start: d2.toLocaleTimeString(),
+          })
+          .then((data) => {
+            const fieldsToInsert = invigilators.map((invigilator) => ({
+              lecturer_id: invigilator.value,
+              room_id: room.value,
+              assigned_date: formatedDate,
+              session_id: session.value,
+              status,
+              assigned_by,
+              time_start: d2.toLocaleTimeString(),
+            }));
+            //console.log(req.body);
 
-      database("invigilators")
-        .insert(fieldsToInsert)
-        .then((data) => res.status(200).send("Received the data"))
-        .catch((err) => res.status(400).send("Failed to send the data " + err));
-    })
-    .catch((err) => res.status(400).send("Failed to send the data " + err));
+            database("invigilators")
+              .insert(fieldsToInsert)
+              .then((data) => res.status(200).send("Received the data"))
+              .catch((err) =>
+                res.status(400).send("Failed to send the data " + err)
+              );
+          })
+          .catch((err) =>
+            res.status(400).send("Failed to send the data " + err)
+          );
+      } else {
+        const fieldsToInsert = invigilators.map((invigilator) => ({
+          lecturer_id: invigilator.value,
+          room_id: room.value,
+          assigned_date: formatedDate,
+          session_id: session.value,
+          status,
+          assigned_by,
+          time_start: d2.toLocaleTimeString(),
+        }));
+        //console.log(req.body);
+
+        database("invigilators")
+          .insert(fieldsToInsert)
+          .then((data) => res.status(200).send("Received the data"))
+          .catch((err) =>
+            res.status(400).send("Failed to send the data " + err)
+          );
+      }
+    });
+});
+
+app.post("/api/removeInvigilator", (req, res) => {
+  // const { room, invigilators, session, date, status, assigned_by } = req.body;
+  // console.log("Date received", date);
+  console.log("data got here remove", req.body);
+  // const d = new Date(date);
+  // const formatedDate =
+  //   d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  // console.log("Formated", formatedDate);
+
+  // const d2 = new Date();
+
+  database("invigilators")
+    .where("i_id", req.body.i_id)
+    .del()
+    .then((data) => {
+      res.send("success");
+    });
+
+  // database
+  //   .select("*")
+  //   .where({
+  //     lecturer_id: invigilators[0].value,
+  //     room_id: room.value,
+  //     assigned_date: formatedDate,
+  //     session_id: session.value,
+  //     status,
+  //     assigned_by,
+  //     // time_start: d2.toLocaleTimeString(),
+  //   })
+  //   .from("invigilators_sammary")
+  //   .then((invigilatoData) => {
+  //     if (invigilatoData.length == 0) {
+  //       database("invigilators_sammary")
+  //         .insert({
+  //           lecturer_id: invigilators[0].value,
+  //           room_id: room.value,
+  //           assigned_date: formatedDate,
+  //           session_id: session.value,
+  //           status,
+  //           assigned_by,
+  //           time_start: d2.toLocaleTimeString(),
+  //         })
+  //         .then((data) => {
+  //           const fieldsToInsert = invigilators.map((invigilator) => ({
+  //             lecturer_id: invigilator.value,
+  //             room_id: room.value,
+  //             assigned_date: formatedDate,
+  //             session_id: session.value,
+  //             status,
+  //             assigned_by,
+  //             time_start: d2.toLocaleTimeString(),
+  //           }));
+  //           //console.log(req.body);
+
+  //           database("invigilators")
+  //             .insert(fieldsToInsert)
+  //             .then((data) => res.status(200).send("Received the data"))
+  //             .catch((err) =>
+  //               res.status(400).send("Failed to send the data " + err)
+  //             );
+  //         })
+  //         .catch((err) =>
+  //           res.status(400).send("Failed to send the data " + err)
+  //         );
+  //     } else {
+  //       const fieldsToInsert = invigilators.map((invigilator) => ({
+  //         lecturer_id: invigilator.value,
+  //         room_id: room.value,
+  //         assigned_date: formatedDate,
+  //         session_id: session.value,
+  //         status,
+  //         assigned_by,
+  //         time_start: d2.toLocaleTimeString(),
+  //       }));
+  //       //console.log(req.body);
+
+  //       database("invigilators")
+  //         .insert(fieldsToInsert)
+  //         .then((data) => res.status(200).send("Received the data"))
+  //         .catch((err) =>
+  //           res.status(400).send("Failed to send the data " + err)
+  //         );
+  //     }
+  //   });
 });
 
 app.get("/invigilators/", (req, res) => {
