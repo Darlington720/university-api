@@ -10,12 +10,16 @@ const { cookie } = require("express/lib/response");
 const req = require("express/lib/request");
 const moment = require("moment");
 const { sendPushNotifications } = require("./pushNotifications");
-var { baseIp, port } = require("./config");
+var { baseIp, port, api } = require("./config");
+var request = require("request");
+const { create } = require("apisauce");
 const { finished } = require("stream");
 
 const upload = multer();
 const app = express();
 const secret = "mySecret";
+
+// console.log("my name is", new Date("2022-12-04T23:31:53.000Z").getDate());
 
 var range = function (start, end, step) {
   var range = [];
@@ -134,6 +138,70 @@ data.map((item) =>
       });
   })
 );
+
+app.get("/nkumbastudentbiodata/:studentNo", (req, res) => {
+  // res.send("getting the data");
+  const { studentNo } = req.params;
+
+  const formData = {
+    action: "portal",
+    method: "load_reg_std",
+    data: [{ stdno: `${studentNo}`, inst_code: "nkumba" }],
+    type: "rpc",
+    tid: 9,
+  };
+
+  api.post("/", formData).then((response) => {
+    if (!response.ok) {
+      return res.send("Failed to get the data from the server");
+    }
+
+    res.send(response.data);
+  });
+});
+
+app.post("/nkumbaStudentRegisteredModules", (req, res) => {
+  const { stdno, studyYr, sem, progcode, progvsn } = req.body;
+  console.log("am sending this", req.body);
+
+  // const api = create({
+  //   baseURL: "https://student.nkumbauniversity.ac.ug/",
+  //   headers: {
+  //     "User-Agent":
+  //       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36",
+  //     "Content-Type": "text/plain",
+  //     Cookie:
+  //       "ai=64353437633533343261653465376333346266366561643762383131303033337C7C6E6B756D6261; as=34356466366431353531653138363965333133663666306630613338343333367C7C32303030313031303431; asc=28d19482b47e924c12a066537a9de933; ast=6ae18f8d-1874-4169-8d58-c19240687b72-1669583680",
+  //   },
+  // });
+
+  const formData = {
+    action: "portal",
+    method: "load_modules",
+    data: [
+      {
+        stdno: `${stdno}`,
+        study_yr: `${studyYr}`,
+        sem: `${sem}`,
+        progcode: `${progcode}`,
+        progvsn: `${progvsn}`,
+        page: 1,
+        start: 0,
+        limit: 20,
+      },
+    ],
+    type: "rpc",
+    tid: 19,
+  };
+
+  api.post("/bridge", formData).then((response) => {
+    if (!response.ok) {
+      return res.send("Failed to get the data from the server");
+    }
+
+    res.send(response.data);
+  });
+});
 
 app.get(`/gates/:campus`, (req, res) => {
   const { campus } = req.params;
@@ -4100,7 +4168,7 @@ app.post("/api/addInvigilator", (req, res) => {
   console.log("Formated", formatedDate);
 
   const d2 = new Date();
-
+  const time = d2.getHours() + ":" + d2.getMinutes() + ":" + d2.getSeconds();
   database
     .select("*")
     .where({
@@ -4123,7 +4191,7 @@ app.post("/api/addInvigilator", (req, res) => {
             session_id: session.value,
             status,
             assigned_by,
-            time_start: d2.toLocaleTimeString(),
+            time_start: time,
           })
           .then((data) => {
             const fieldsToInsert = invigilators.map((invigilator) => ({
@@ -4133,7 +4201,7 @@ app.post("/api/addInvigilator", (req, res) => {
               session_id: session.value,
               status,
               assigned_by,
-              time_start: d2.toLocaleTimeString(),
+              time_start: time,
             }));
             //console.log(req.body);
 
@@ -4155,7 +4223,7 @@ app.post("/api/addInvigilator", (req, res) => {
           session_id: session.value,
           status,
           assigned_by,
-          time_start: d2.toLocaleTimeString(),
+          time_start: time,
         }));
         //console.log(req.body);
 
