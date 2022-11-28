@@ -144,6 +144,8 @@ app.get("/nkumbastudentbiodata/:studentNo", (req, res) => {
   // console.log("agent", navigator.userAgent);
   const { studentNo } = req.params;
 
+  console.log("api now", api);
+
   const formData = {
     action: "portal",
     method: "load_reg_std",
@@ -249,6 +251,26 @@ app.post("/nkumbaLogin", (req, res) => {
     if (!response.ok) {
       return res.send("Failed to get the data from the server");
     }
+
+    let newCookies = "";
+
+    // console.log("response headers", response.headers["set-cookie"]);
+
+    for (var i = 0; i < 4; i++) {
+      // console.log(response.headers["set-cookie"][i].split(";"));
+      newCookies += `${response.headers["set-cookie"][i].split(";")[0]}; `;
+    }
+
+    console.log("Resulting cokkiess", newCookies);
+    api = create({
+      baseURL: "https://student.nkumbauniversity.ac.ug/bridge",
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.11 (KHTML, like Gecko) Ubuntu/11.10 Chromium/27.0.1453.93 Chrome/27.0.1453.93 Safari/537.36",
+        "Content-Type": "text/plain",
+        Cookie: newCookies,
+      },
+    });
 
     res.send(response.data);
   });
