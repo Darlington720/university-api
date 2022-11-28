@@ -144,7 +144,7 @@ app.get("/nkumbastudentbiodata/:studentNo", (req, res) => {
   // console.log("agent", navigator.userAgent);
   const { studentNo } = req.params;
 
-  console.log("api now", api);
+  // console.log("api now", api);
 
   const formData = {
     action: "portal",
@@ -159,7 +159,61 @@ app.get("/nkumbastudentbiodata/:studentNo", (req, res) => {
       return res.send("Failed to get the data from the server");
     }
 
-    res.send(response.data);
+    if (response.data.result.success) {
+      res.send(response.data);
+    } else {
+      var data = {
+        action: "zauth",
+        method: "login",
+        data: [
+          {
+            user_id: "2000101041",
+            pwd: "4e38038e13cdc3207ab2bb487839c4f7",
+            inst_code: "nkumba",
+            dp: "38666531623966662D653861322D343435382D393234332D3434303562366262326138647C7C323032322D31312D32377E323032322D31312D32387E323032322D31312D3239",
+            tk: "2f114fbbc8e00cd9005180a79891ddb59126e72c95f231802be7f7db82c4bfb4",
+            rt: "38666531623966662D653861322D343435382D393234332D343430356236626232613864",
+          },
+        ],
+        type: "rpc",
+        tid: 17,
+      };
+
+      authApi.post("/bridge", data).then((response) => {
+        if (!response.ok) {
+          return res.send("Failed to get the data from the server");
+        }
+
+        let newCookies = "";
+
+        // console.log("response headers", response.headers["set-cookie"]);
+
+        for (var i = 0; i < 4; i++) {
+          // console.log(response.headers["set-cookie"][i].split(";"));
+          newCookies += `${response.headers["set-cookie"][i].split(";")[0]}; `;
+        }
+
+        console.log("Resulting cokkiess", newCookies);
+        api = create({
+          baseURL: "https://student.nkumbauniversity.ac.ug/bridge",
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.11 (KHTML, like Gecko) Ubuntu/11.10 Chromium/27.0.1453.93 Chrome/27.0.1453.93 Safari/537.36",
+            "Content-Type": "text/plain",
+            Cookie: newCookies,
+          },
+        });
+
+        api.post("/", formData).then((r) => {
+          if (!r.ok) {
+            return res.send("Failed to get the data from the server");
+          }
+
+          res.send(r.data);
+        });
+        // res.send(response.data);
+      });
+    }
   });
 });
 
@@ -225,27 +279,6 @@ app.post("/nkumbaLogin", (req, res) => {
     type: "rpc",
     tid: 17,
   };
-
-  // console.log("am sending this", req.body);
-
-  // const api = create({
-  //   baseURL: "https://student.nkumbauniversity.ac.ug/",
-  //   headers: {
-  //     "User-Agent":
-  //       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36",
-  //     "Content-Type": "text/plain",
-  //     Cookie:
-  //       "ai=64353437633533343261653465376333346266366561643762383131303033337C7C6E6B756D6261; as=34356466366431353531653138363965333133663666306630613338343333367C7C32303030313031303431; asc=28d19482b47e924c12a066537a9de933; ast=6ae18f8d-1874-4169-8d58-c19240687b72-1669583680",
-  //   },
-  // });
-
-  // const formData = {
-  //   action: "portal",
-  //   method: "load_modules",
-  //   data: data,
-  //   type: "rpc",
-  //   tid: 19,
-  // };
 
   authApi.post("/bridge", data).then((response) => {
     if (!response.ok) {
