@@ -7,12 +7,14 @@ const jwt = require("jsonwebtoken");
 const knex = require("knex");
 const cors = require("cors");
 const { cookie } = require("express/lib/response");
+const readXlsxFile = require("read-excel-file/node");
 const req = require("express/lib/request");
 const moment = require("moment");
 const { sendPushNotifications } = require("./pushNotifications");
 var { baseIp, port, api, authApi } = require("./config");
 var request = require("request");
 const { create } = require("apisauce");
+const fileUpload = require("express-fileupload");
 const { finished } = require("stream");
 
 const upload = multer();
@@ -71,7 +73,8 @@ let members = [];
 
 app.use(cors());
 app.use(express.static(__dirname + "/public"));
-app.use(upload.any());
+app.use(fileUpload());
+// app.use(upload.any());
 app.use(
   bodyParser.urlencoded({
     extended: true,
@@ -138,6 +141,402 @@ data.map((item) =>
       });
   })
 );
+
+//dina
+app.post("/saveDinaTableDetails", (req, res) => {
+  // const { name, percentage } = req.body;
+  console.log("Received Data", req.body);
+  database("dina_taken_tables")
+    .insert({
+      name: req.body.name,
+      payment_mode: req.body.paymentMode,
+      table_no: req.body.tableNo,
+      table_id: req.body.id,
+    })
+    .then((data) => {
+      res.send("Received the data");
+    })
+    .catch((err) => res.send(err));
+});
+
+//upload
+app.post("/uploadImage", (req, res) => {
+  try {
+    // console.log(req);
+    if (!req.files) {
+      req.send({
+        status: false,
+        message: "No files Uploaded",
+      });
+    } else {
+      let image = req.files.image;
+
+      console.log("path ", __dirname);
+      image.mv(__dirname + "/upload/" + image.name);
+
+      res.send({
+        status: true,
+        message: "File is uploaded",
+        data: {
+          name: image.name,
+          mimetype: image.mimetype,
+          size: image.size,
+        },
+      });
+    }
+  } catch (error) {
+    res.status(500).send(error);
+  }
+});
+
+//upload-multiple
+app.post("/upload-photos", async (req, res) => {
+  try {
+    // console.log("Here is what i got ", req.files.image);
+    // console.log("Here is what i got ", req.files);
+    if (!req.files) {
+      res.send({
+        status: false,
+        message: "No file uploaded",
+      });
+    } else {
+      let data = [];
+
+      //loop all files
+      if (Array.isArray(req.files.image)) {
+        req.files.image.forEach((photo) => {
+          photo.mv(__dirname + "/public/assets/" + photo.name);
+
+          //push file details
+          data.push({
+            name: photo.name,
+            mimetype: photo.mimetype,
+            size: photo.size,
+          });
+        });
+        res.send({
+          status: true,
+          message: "Files are uploaded",
+          data: data,
+        });
+      } else {
+        let image = req.files.image;
+
+        // console.log("path ", __dirname);
+        image.mv(__dirname + "/public/assets/" + image.name);
+
+        res.send({
+          status: true,
+          message: "File is uploaded",
+          data: {
+            name: image.name,
+            mimetype: image.mimetype,
+            size: image.size,
+          },
+        });
+      }
+
+      // forEach(keysIn(req.files.photo), (key) => {
+      //   let photo = req.files.image[key];
+      //   console.log("Keyyyy", key);
+
+      //   //move photo to uploads directory
+      //   photo.mv("./uploads/" + image.name);
+
+      //   //push file details
+      //   data.push({
+      //     name: image.name,
+      //     mimetype: image.mimetype,
+      //     size: image.size,
+      //   });
+      // });
+
+      //return response
+    }
+  } catch (err) {
+    res.status(500).send(err);
+  }
+});
+
+app.post("/importExceltodb", (req, res) => {
+  try {
+    // console.log(req);
+    if (!req.files) {
+      req.send({
+        status: false,
+        message: "No files Uploaded",
+      });
+    } else {
+      let xlsFile = req.files.excelFile;
+      // console.log("File i got ", xlsFile);
+      // res.send(xlsFile);
+
+      // console.log("path ", __dirname);
+      xlsFile
+        .mv(__dirname + "/upload/excel_sheets/" + xlsFile.name)
+        .then(() => {
+          readXlsxFile(`${__dirname}/upload/excel_sheets/${xlsFile.name}`).then(
+            (rows) => {
+              // res.send(rows);
+
+              const fieldsToInsertBiodata = rows
+                .map((field, index) => {
+                  // const noSpecialChars = str.replace(/[^a-zA-Z0-9 ]/g, "");
+                  if (index == 0) return;
+                  return {
+                    stdno: field[0].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    regno: field[1].replace(/[^a-zA-Z0-9/ ]/g, ""),
+                    name: field[3].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    admissions_form_no: "",
+                    sex: field[4].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    telno: field[6].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    entry_ac_yr: field[7].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    entry_study_yr: field[15].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    nationality: field[8].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    facultycode: field[23].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    progtitle: field[21].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    progcode: field[19].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    prog_alias: field[20].replace(/[^a-zA-Z0-9 ]/g, ""),
+
+                    programlevel: field[22].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    progduration: "",
+                    facultytitle: field[24].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    intake: field[30].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    campus: field[29].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    sponsorship: field[27].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    residence_status: field[10].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    current_sem: field[16].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    study_yr: field[15].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    study_time: field[13].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    collegetitle: field[26].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    std_status: 0,
+                    progversion: "",
+                  };
+                })
+                .filter((row) => {
+                  return row !== undefined;
+                });
+
+              const fieldsToInsert = rows
+                .map((field, index) => {
+                  const noWhiteSpace = field[48].replace(/\s/g, "");
+                  var cleanTotalBill = noWhiteSpace.replace(
+                    /[^a-zA-Z0-9. ]/g,
+                    ""
+                  );
+
+                  const noWhiteSpace2 = field[50].replace(/\s/g, "");
+                  var cleanTotalPaid = noWhiteSpace2.replace(
+                    /[^a-zA-Z0-9. ]/g,
+                    ""
+                  );
+
+                  const noWhiteSpace3 = field[49].replace(/\s/g, "");
+                  var cleanTotalCredit = noWhiteSpace3.replace(
+                    /[^a-zA-Z0-9. ]/g,
+                    ""
+                  );
+
+                  const noWhiteSpace4 = field[51].replace(/\s/g, "");
+                  var cleanTotalDue = noWhiteSpace4.replace(/[^\d]+/g, "");
+
+                  // const noSpecialChars = str.replace(/[^a-zA-Z0-9 ]/g, "");
+                  if (index == 0) return;
+                  return {
+                    stu_no: field[0].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    acc_yr: field[14].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    study_yr: field[15].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    sem: field[16].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    reg_status: field[31].replace(/[^a-zA-Z0-9 ]/g, ""),
+                    total_bill: cleanTotalBill,
+                    total_credit: cleanTotalCredit,
+                    tatal_paid: cleanTotalPaid,
+                    paid_percentage: isNaN(
+                      parseInt(
+                        ((parseInt(cleanTotalPaid) +
+                          parseInt(cleanTotalCredit)) /
+                          parseInt(cleanTotalBill)) *
+                          100
+                      )
+                    )
+                      ? 0
+                      : parseInt(
+                          ((parseInt(cleanTotalPaid) +
+                            parseInt(cleanTotalCredit)) /
+                            parseInt(cleanTotalBill)) *
+                            100
+                        ),
+                    total_due: cleanTotalDue,
+                  };
+                })
+                .filter((row) => {
+                  return row !== undefined;
+                });
+
+              // console.log(fieldsToInsert);
+              // res.send(fieldsToInsertBiodata);
+
+              fieldsToInsert.forEach((stu) => {
+                // database("student_paid_fess")
+                //   .where("stu_no", stu.stu_no)
+                //   .andWhere("study_yr", stu.study_yr)
+                //   .andWhere("sem", stu.sem)
+                database
+                  .select("*")
+                  .where({
+                    stu_no: stu.stu_no,
+                    study_yr: stu.study_yr,
+                    sem: stu.sem,
+                  })
+                  .from("student_paid_fess")
+                  .then((result) => {
+                    //the stu number is not there
+                    if (result.length == 0) {
+                      database("student_paid_fess")
+                        .insert(stu)
+                        .then((data) => {
+                          // res.status(200).send("Success");
+                          console.log("Data", data);
+                        })
+                        .catch((err) => {
+                          console.log("Failed to save the data", err);
+                          // res.status(400).send("fail");
+                        });
+                    } else {
+                      //the stu no id there
+                      database("student_paid_fess")
+                        .where(function () {
+                          this.where("stu_no", "=", stu.stu_no);
+                        })
+
+                        .andWhere(function () {
+                          this.where("study_yr", "=", stu.study_yr);
+                        })
+                        .andWhere(function () {
+                          this.where("sem", "=", stu.sem);
+                        })
+                        .update({
+                          acc_yr: stu.acc_yr,
+                          paid_percentage: stu.paid_percentage,
+                          reg_status: stu.reg_status,
+                          total_bill: stu.total_bill,
+                          total_credit: stu.total_credit,
+                          tatal_paid: stu.tatal_paid,
+                          total_due: stu.total_due,
+                        })
+                        .then((data) => {
+                          // res.send("updated the data");
+                          console.log("Data here", data);
+                        })
+                        .catch((err) =>
+                          console.log("Error in updating the data", err)
+                        );
+                    }
+                  });
+              });
+
+              fieldsToInsertBiodata.forEach((student) => {
+                database
+                  .select("*")
+                  .from("students_biodata")
+                  .where("students_biodata.stdno", "=", student.stdno)
+                  .then((stuData) => {
+                    if (stuData.length == 0) {
+                      database("students_biodata")
+                        .insert({
+                          stdno: student.stdno,
+                          regno: student.regno,
+                          name: student.name,
+                          admissions_form_no: student.admissions_form_no,
+                          sex: student.sex,
+                          telno: student.telno,
+                          entry_ac_yr: student.entry_ac_yr,
+                          entry_study_yr: student.entry_study_yr,
+                          nationality: student.nationality,
+                          facultycode: student.facultycode,
+                          progtitle: student.progtitle,
+                          progcode: student.progcode,
+                          prog_alias: student.prog_alias,
+
+                          programlevel: student.programlevel,
+                          progduration: student.progduration,
+                          facultytitle: student.facultytitle,
+                          intake: student.intake,
+                          campus: student.campus,
+                          sponsorship: student.sponsorship,
+                          residence_status: student.residence_status,
+                          current_sem: student.current_sem,
+                          study_yr: student.study_yr,
+                          study_time: student.study_time,
+                          collegetitle: student.collegetitle,
+                          std_status: student.std_status,
+                          progversion: student.progversion,
+                        })
+                        .then((result) => {
+                          console.log(
+                            "Added a new student to our db ",
+                            student.stdno
+                          );
+                        });
+                    }
+                  });
+              });
+
+              res.send({
+                success: true,
+                message: "Excel sheet uploaded successfully",
+              });
+
+              // database("student_paid_fess")
+              //   .insert(fieldsToInsert)
+              //   .then((data) => {
+              //     res.status(200).send("Success");
+              //     console.log("Data", data);
+              //   })
+              //   .catch((err) => {
+              //     console.log("Failed to save the data", err);
+              //     res.status(400).send("fail");
+              //   });
+            }
+          );
+        });
+
+      // res.send({
+      //   status: true,
+      //   message: "File is uploaded",
+      //   data: {
+      //     name: xlsFile.name,
+      //     mimetype: xlsFile.mimetype,
+      //     size: xlsFile.size,
+      //   },
+      // });
+    }
+  } catch (error) {
+    res.status(500).send(error);
+  }
+});
+
+// app.post("/upload", function (req, res) {
+//   let sampleFile;
+//   let uploadPath;
+
+//   console.log("Object name", Object.keys(req.files));
+//   console.log("Name", req.files);
+//   if (!req.files || Object.keys(req.files).length === 0) {
+//     return res.status(400).send("No files were uploaded.");
+//   }
+
+//   // The name of the input field (i.e. "sampleFile") is used to retrieve the uploaded file
+//   sampleFile = req.files.sampleFile;
+//   uploadPath = __dirname + "/somewhere/on/your/server/" + sampleFile.name;
+
+//   // Use the mv() method to place the file somewhere on your server
+//   sampleFile.mv(uploadPath, function (err) {
+//     if (err) return res.status(500).send(err);
+
+//     res.send("File uploaded!");
+//   });
+// });
 
 app.get("/nkumbastudentbiodata/:studentNo", (req, res) => {
   // res.send("getting the data");
@@ -1944,91 +2343,6 @@ app.get("/studentData", (req, res) => {
     });
 });
 
-// app.get("/student/:studentNo", (req, res) => {
-//   const { studentNo } = req.params;
-//   console.log(studentNo);
-//   const d = new Date();
-//   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
-
-//   database
-//     .select("*")
-//     .from("students_signin_book")
-//     .where({
-//       stu_id: studentNo,
-//       signin_date: date,
-//     })
-//     .then((data) => {
-//       // res.send(data);
-//       if (data.length > 0) {
-//         database
-//           .select("*")
-//           .from("students")
-
-//           .join(
-//             "students_signin_book",
-//             "students.stu_id",
-//             "=",
-//             "students_signin_book.stu_id"
-//           )
-
-//           .join(
-//             "students_signout_book",
-//             "students.stu_id",
-//             "=",
-//             "students_signout_book.stu_id"
-//           )
-//           .where("students.stu_id", "=", studentNo)
-//           .andWhere("students_signout_book.signin_date", "=", date)
-//           .then((data3) => {
-//             // res.send(data3);
-//             if (data3[0].sign_out !== null) {
-//               res.send("Already registered");
-//             } else {
-//               res.send([
-//                 data3[0],
-//                 {
-//                   todaysStatus: true,
-//                   imageUrl: `http://${baseIp}:${port}/assets/${data3[0].image}`,
-//                 },
-//               ]);
-//             }
-//           });
-//       } else {
-//         database
-//           .select("*")
-//           .from("students")
-//           .where({
-//             stu_id: studentNo,
-//           })
-//           .then((data2) => {
-//             res.send([
-//               ...data2,
-//               {
-//                 todaysStatus: false,
-//                 imageUrl: data2[0]
-//                   ? `http://${baseIp}:${port}/assets/${data2[0].image}`
-//                   : "http://${baseIp}:${port}/assets/jacket.jpg",
-//               },
-//             ]);
-//           });
-//       }
-//     });
-
-//   // database("students")
-//   //   .join(
-//   //     "students_signin_book",
-//   //     "students.stu_id",
-//   //     "=",
-//   //     "students_signin_book.stu_id"
-//   //   )
-//   //   .select("*")
-//   //   // .where("quantity", ">", 0)
-
-//   //   .then((data) => {
-//   //     res.send(data);
-//   //   });
-// });
-
 app.post("/allstudentdetails/", (req, res) => {
   const { studentNo, date } = req.body;
   // console.log(req.body);
@@ -2273,71 +2587,374 @@ app.get("/allstudentdetails/:studentNo", (req, res) => {
   //   });
 });
 
+//updated to new rules
+// app.get("/student/:studentNo", (req, res) => {
+//   const { studentNo } = req.params;
+//   const userId = 1;
+//   //console.log("number", studentNo);
+//   const d = new Date();
+//   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+//   // database
+//   //   .select("*")
+//   //   .from("stu_signin")
+//   //   .join("students", "stu_signin.stu_id", "=", "students.stu_id")
+
+//   database
+//     .select("*")
+//     .from("students_biodata")
+
+//     .join(
+//       "student_signin",
+//       "students_biodata.stdno",
+//       "=",
+//       "student_signin.stu_id"
+//     )
+
+//     .where("students_biodata.stdno", "=", studentNo)
+//     .andWhere("student_signin.signin_date", "=", date)
+
+//     .then((data2) => {
+//       // res.send(data3);
+
+//       database
+//         .select("*")
+//         .from("students_biodata")
+
+//         .join("stu_signin", "students_biodata.stdno", "=", "stu_signin.stu_id")
+
+//         .where("students_biodata.stdno", "=", studentNo)
+//         .andWhere("stu_signin.signin_date", "=", date)
+
+//         .then((data3) => {
+//           if (data3.length > 0) {
+//             // res.send(data3);
+//             if (data3[data3.length - 1].signout_time !== null) {
+//               // res.send("Already registered");
+//               database
+//                 .select("*")
+//                 .from("students_biodata")
+//                 // .join("finance", "students.stu_id", "=", "finance.stu_no")
+//                 .where({
+//                   stdno: studentNo,
+//                 })
+//                 .then((data2) => {
+//                   database
+//                     .select("*")
+//                     .from("constraints")
+//                     .then((data6) => {
+//                       res.send([
+//                         ...data2,
+//                         {
+//                           todaysStatus: "not new",
+//                           imageUrl: data2[0]
+//                             ? `http://${baseIp}:${port}/assets/${data2[0].image}`
+//                             : "http://${baseIp}:${port}/assets/jacket.jpg",
+//                           requiredPercentage: data6[0].c_percentage,
+//                         },
+//                       ]);
+//                     });
+//                 });
+//             } else {
+//               database
+//                 .select("*")
+//                 .from("constraints")
+//                 .then((data6) => {
+//                   res.send([
+//                     data3[data3.length - 1],
+//                     {
+//                       todaysStatus: true,
+//                       imageUrl: `http://${baseIp}:${port}/assets/${data3[0].image}`,
+//                       requiredPercentage: data6[0].c_percentage,
+//                     },
+//                   ]);
+//                 });
+//             }
+//           } else {
+//             database
+//               .select("*")
+//               .from("students_biodata")
+//               // .join("finance", "students.stu_id", "=", "finance.stu_no")
+//               .where({
+//                 stdno: studentNo,
+//               })
+//               .then((data2) => {
+//                 if (data2[0]) {
+//                   // database
+//                   //   // .orderBy("id")
+//                   //   .select("*")
+//                   //   .from("fees_structure")
+//                   //   .join(
+//                   //     "nationality",
+//                   //     "fees_structure.nationality_id",
+//                   //     "=",
+//                   //     "nationality.nationality_id"
+//                   //   )
+//                   //   .join(
+//                   //     "sessions",
+//                   //     "fees_structure.session_id",
+//                   //     "=",
+//                   //     "sessions.session_id"
+//                   //   )
+//                   //   .join(
+//                   //     "schools",
+//                   //     "fees_structure.school_id",
+//                   //     "=",
+//                   //     "schools.school_id"
+//                   //   )
+//                   //   .join(
+//                   //     "levels",
+//                   //     "fees_structure.levels_id",
+//                   //     "=",
+//                   //     "levels.level_id"
+//                   //   )
+//                   //   .where("sessions.session_name", "=", data2[0].study_time)
+//                   //   // .andWhere("schools.school_id", "=", data2[0].school_id)
+//                   //   .andWhere(
+//                   //     "nationality.nationality_id",
+//                   //     "=",
+//                   //     data2[0].nationality_id
+//                   //   )
+//                   //   .andWhere("levels.levels", "=", data2[0].level)
+//                   //   .then((data4) => {
+//                   //     // database
+//                   //     //   .select("*")
+//                   //     //   .from("finance")
+//                   //     //   // .where("finance.stu_no", "=", studentNo)
+//                   //     //   .then((data5) => {
+
+//                   //     //   });
+
+//                   //   });
+//                   database
+//                     .select("*")
+//                     .from("constraints")
+//                     .then((data6) => {
+//                       res.send([
+//                         ...data2,
+//                         {
+//                           todaysStatus: false,
+//                           imageUrl: data2[0]
+//                             ? `http://${baseIp}:${port}/assets/${data2[0].image}`
+//                             : "http://${baseIp}:${port}/assets/jacket.jpg",
+//                           // feesStructure: data4,
+//                           // paid: data5,
+//                           // percentage:
+//                           //   data2[0] && data5[0]
+//                           //     ? (data5[0].amount / data4[0].tuition) * 100
+//                           //     : 0,
+//                           requiredPercentage: data6[0].c_percentage,
+//                           // paidAmt: data5[0] ? data5[0].amount : 0,
+//                           // reachedPercentage:
+//                           //   data2[0] && data5[0]
+//                           //     ? (data5[0].amount / data4[0].tuition) *
+//                           //         100 >=
+//                           //       data6[0].c_percentage
+//                           //     : 0 >= data6[0].c_percentage,
+//                         },
+//                       ]);
+//                     });
+//                 } else {
+//                   database
+//                     .select("*")
+//                     .from("constraints")
+//                     .then((data6) => {
+//                       res.send([
+//                         {
+//                           todaysStatus: false,
+//                           imageUrl: data2[0]
+//                             ? `http://${baseIp}:${port}/assets/${data2[0].image}`
+//                             : "http://${baseIp}:${port}/assets/jacket.jpg",
+//                           requiredPercentage: data6[0].c_percentage,
+//                         },
+//                       ]);
+//                     });
+//                 }
+//               });
+//           }
+//         });
+//     });
+
+//   // database("students")
+//   //   .join(
+//   //     "students_signin_book",
+//   //     "students.stu_id",
+//   //     "=",
+//   //     "students_signin_book.stu_id"
+//   //   )
+//   //   .select("*")
+//   //   // .where("quantity", ">", 0)
+
+//   //   .then((data) => {
+//   //     res.send(data);
+//   //   });
+// });
+
+//new update of acquiring student entirely on tredumo
 app.get("/student/:studentNo", (req, res) => {
   const { studentNo } = req.params;
-  const userId = 1;
-  //console.log("number", studentNo);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
-
-  // database
-  //   .select("*")
-  //   .from("stu_signin")
-  //   .join("students", "stu_signin.stu_id", "=", "students.stu_id")
 
   database
     .select("*")
     .from("students_biodata")
 
-    .join(
-      "student_signin",
-      "students_biodata.stdno",
-      "=",
-      "student_signin.stu_id"
-    )
+    .join("stu_signin", "students_biodata.stdno", "=", "stu_signin.stu_id")
 
     .where("students_biodata.stdno", "=", studentNo)
-    .andWhere("student_signin.signin_date", "=", date)
+    .andWhere("stu_signin.signin_date", "=", date)
 
-    .then((data2) => {
-      // res.send(data3);
-
-      database
-        .select("*")
-        .from("students_biodata")
-
-        .join("stu_signin", "students_biodata.stdno", "=", "stu_signin.stu_id")
-
-        .where("students_biodata.stdno", "=", studentNo)
-        .andWhere("stu_signin.signin_date", "=", date)
-
-        .then((data3) => {
-          if (data3.length > 0) {
-            // res.send(data3);
-            if (data3[data3.length - 1].signout_time !== null) {
-              // res.send("Already registered");
+    .then((data3) => {
+      // console.log("data3", data3);
+      if (data3.length > 0) {
+        if (data3[data3.length - 1].signout_time !== null) {
+          // res.send("Already registered");
+          database
+            .select("*")
+            .from("students_biodata")
+            // .join("finance", "students.stu_id", "=", "finance.stu_no")
+            .where({
+              stdno: studentNo,
+            })
+            .then((data2) => {
               database
                 .select("*")
-                .from("students_biodata")
-                // .join("finance", "students.stu_id", "=", "finance.stu_no")
+                .from("student_paid_fess")
                 .where({
-                  stdno: studentNo,
+                  stu_no: studentNo,
                 })
-                .then((data2) => {
+                .then((payment_percentages) => {
+                  let regStatus = "Not Registered";
+
+                  if (
+                    payment_percentages.length === 0 ||
+                    payment_percentages[payment_percentages.length - 1]
+                      .paid_percentage < 100
+                  ) {
+                    regStatus = "Not Registered";
+                  } else if (
+                    payment_percentages[payment_percentages.length - 1]
+                      .paid_percentage >= 100
+                  ) {
+                    regStatus = "Registered";
+                  }
                   database
                     .select("*")
                     .from("constraints")
                     .then((data6) => {
-                      res.send([
-                        ...data2,
-                        {
-                          todaysStatus: "not new",
-                          imageUrl: data2[0]
-                            ? `http://${baseIp}:${port}/assets/${data2[0].image}`
-                            : "http://${baseIp}:${port}/assets/jacket.jpg",
-                          requiredPercentage: data6[0].c_percentage,
+                      res.send({
+                        success: true,
+                        result: {
+                          biodata: data2,
+                          otherDetails: {
+                            todaysStatus: "not new",
+                            percentages: payment_percentages,
+                            registration_status: regStatus,
+                            imageUrl: data2[0]
+                              ? `http://${baseIp}:${port}/assets/${data2[0].image}`
+                              : "http://${baseIp}:${port}/assets/jacket.jpg",
+                            requiredPercentage: data6[0].c_percentage,
+                          },
                         },
-                      ]);
+                      });
+                    });
+                });
+            });
+        } else {
+          database
+            .select("*")
+            .from("student_paid_fess")
+            .where({
+              stu_no: studentNo,
+            })
+            .then((payment_percentages) => {
+              let regStatus = "Not Registered";
+
+              if (
+                payment_percentages.length === 0 ||
+                payment_percentages[payment_percentages.length - 1]
+                  .paid_percentage < 100
+              ) {
+                regStatus = "Not Registered";
+              } else if (
+                payment_percentages[payment_percentages.length - 1]
+                  .paid_percentage >= 100
+              ) {
+                regStatus = "Registered";
+              }
+              database
+                .select("*")
+                .from("constraints")
+                .then((data6) => {
+                  res.send({
+                    success: true,
+
+                    result: {
+                      biodata: data3[data3.length - 1],
+                      percentages: payment_percentages,
+                      registration_status: regStatus,
+                      otherDetails: {
+                        todaysStatus: true,
+                        imageUrl: `http://${baseIp}:${port}/assets/${data3[0].image}`,
+                        requiredPercentage: data6[0].c_percentage,
+                      },
+                    },
+                  });
+                });
+            });
+        }
+      } else {
+        database
+          .select("*")
+          .from("students_biodata")
+          // .join("finance", "students.stu_id", "=", "finance.stu_no")
+          .where({
+            stdno: studentNo,
+          })
+          .then((data2) => {
+            if (data2[0]) {
+              database
+                .select("*")
+                .from("student_paid_fess")
+                .where({
+                  stu_no: studentNo,
+                })
+                .then((payment_percentages) => {
+                  let regStatus = "Not Registered";
+
+                  if (
+                    payment_percentages.length === 0 ||
+                    payment_percentages[payment_percentages.length - 1]
+                      .paid_percentage < 100
+                  ) {
+                    regStatus = "Not Registered";
+                  } else if (
+                    payment_percentages[payment_percentages.length - 1]
+                      .paid_percentage >= 100
+                  ) {
+                    regStatus = "Registered";
+                  }
+                  database
+                    .select("*")
+                    .from("constraints")
+                    .then((data6) => {
+                      res.send({
+                        success: true,
+                        result: {
+                          biodata: data2[0],
+                          percentages: payment_percentages,
+                          registration_status: regStatus,
+                          otherDetails: {
+                            todaysStatus: false,
+                            imageUrl: data2[0]
+                              ? `http://${baseIp}:${port}/assets/${data2[0].image}`
+                              : "http://${baseIp}:${port}/assets/jacket.jpg",
+
+                            requiredPercentage: data6[0].c_percentage,
+                          },
+                        },
+                      });
                     });
                 });
             } else {
@@ -2345,134 +2962,22 @@ app.get("/student/:studentNo", (req, res) => {
                 .select("*")
                 .from("constraints")
                 .then((data6) => {
-                  res.send([
-                    data3[data3.length - 1],
-                    {
-                      todaysStatus: true,
-                      imageUrl: `http://${baseIp}:${port}/assets/${data3[0].image}`,
-                      requiredPercentage: data6[0].c_percentage,
-                    },
-                  ]);
+                  res.send({
+                    success: false,
+                    result: `Failed to locate the student with student Number ${studentNo}`,
+                    // {
+                    //   todaysStatus: false,
+                    //   imageUrl: data2[0]
+                    //     ? `http://${baseIp}:${port}/assets/${data2[0].image}`
+                    //     : "http://${baseIp}:${port}/assets/jacket.jpg",
+                    //   requiredPercentage: data6[0].c_percentage,
+                    // },
+                  });
                 });
             }
-          } else {
-            database
-              .select("*")
-              .from("students_biodata")
-              // .join("finance", "students.stu_id", "=", "finance.stu_no")
-              .where({
-                stdno: studentNo,
-              })
-              .then((data2) => {
-                if (data2[0]) {
-                  // database
-                  //   // .orderBy("id")
-                  //   .select("*")
-                  //   .from("fees_structure")
-                  //   .join(
-                  //     "nationality",
-                  //     "fees_structure.nationality_id",
-                  //     "=",
-                  //     "nationality.nationality_id"
-                  //   )
-                  //   .join(
-                  //     "sessions",
-                  //     "fees_structure.session_id",
-                  //     "=",
-                  //     "sessions.session_id"
-                  //   )
-                  //   .join(
-                  //     "schools",
-                  //     "fees_structure.school_id",
-                  //     "=",
-                  //     "schools.school_id"
-                  //   )
-                  //   .join(
-                  //     "levels",
-                  //     "fees_structure.levels_id",
-                  //     "=",
-                  //     "levels.level_id"
-                  //   )
-                  //   .where("sessions.session_name", "=", data2[0].study_time)
-                  //   // .andWhere("schools.school_id", "=", data2[0].school_id)
-                  //   .andWhere(
-                  //     "nationality.nationality_id",
-                  //     "=",
-                  //     data2[0].nationality_id
-                  //   )
-                  //   .andWhere("levels.levels", "=", data2[0].level)
-                  //   .then((data4) => {
-                  //     // database
-                  //     //   .select("*")
-                  //     //   .from("finance")
-                  //     //   // .where("finance.stu_no", "=", studentNo)
-                  //     //   .then((data5) => {
-
-                  //     //   });
-
-                  //   });
-                  database
-                    .select("*")
-                    .from("constraints")
-                    .then((data6) => {
-                      res.send([
-                        ...data2,
-                        {
-                          todaysStatus: false,
-                          imageUrl: data2[0]
-                            ? `http://${baseIp}:${port}/assets/${data2[0].image}`
-                            : "http://${baseIp}:${port}/assets/jacket.jpg",
-                          // feesStructure: data4,
-                          // paid: data5,
-                          // percentage:
-                          //   data2[0] && data5[0]
-                          //     ? (data5[0].amount / data4[0].tuition) * 100
-                          //     : 0,
-                          requiredPercentage: data6[0].c_percentage,
-                          // paidAmt: data5[0] ? data5[0].amount : 0,
-                          // reachedPercentage:
-                          //   data2[0] && data5[0]
-                          //     ? (data5[0].amount / data4[0].tuition) *
-                          //         100 >=
-                          //       data6[0].c_percentage
-                          //     : 0 >= data6[0].c_percentage,
-                        },
-                      ]);
-                    });
-                } else {
-                  database
-                    .select("*")
-                    .from("constraints")
-                    .then((data6) => {
-                      res.send([
-                        {
-                          todaysStatus: false,
-                          imageUrl: data2[0]
-                            ? `http://${baseIp}:${port}/assets/${data2[0].image}`
-                            : "http://${baseIp}:${port}/assets/jacket.jpg",
-                          requiredPercentage: data6[0].c_percentage,
-                        },
-                      ]);
-                    });
-                }
-              });
-          }
-        });
+          });
+      }
     });
-
-  // database("students")
-  //   .join(
-  //     "students_signin_book",
-  //     "students.stu_id",
-  //     "=",
-  //     "students_signin_book.stu_id"
-  //   )
-  //   .select("*")
-  //   // .where("quantity", ">", 0)
-
-  //   .then((data) => {
-  //     res.send(data);
-  //   });
 });
 
 app.get("/voter/:studentNo", (req, res) => {
