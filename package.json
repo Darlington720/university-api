@@ -28,6 +28,7 @@
     "read-excel-file": "^5.5.3",
     "request": "^2.88.2",
     "socket.io": "^4.5.1",
+    "twilio": "^3.84.0",
     "unique-string": "^3.0.0"
   }
 }

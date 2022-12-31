@@ -482,10 +482,17 @@ app.post("/importExceltodb", (req, res) => {
                   });
               });
 
-              res.send({
-                success: true,
-                message: "Excel sheet uploaded successfully",
-              });
+              database("uploaded_excel_forms_fees")
+                .insert({
+                  file_name: xlsFile.name,
+                  upload_date: new Date(),
+                })
+                .then((result) => {
+                  res.send({
+                    success: true,
+                    message: "Excel sheet uploaded successfully",
+                  });
+                });
 
               // database("student_paid_fess")
               //   .insert(fieldsToInsert)
@@ -514,6 +521,16 @@ app.post("/importExceltodb", (req, res) => {
   } catch (error) {
     res.status(500).send(error);
   }
+});
+
+app.get("/lastUploadDateForFees", (req, res) => {
+  database
+    // .orderBy("id")
+    .select("*")
+    .from("uploaded_excel_forms_fees")
+    .then((data) => {
+      res.send(data[data.length - 1]);
+    });
 });
 
 // app.post("/upload", function (req, res) {
@@ -2846,10 +2863,10 @@ app.get("/student/:studentNo", (req, res) => {
                       res.send({
                         success: true,
                         result: {
-                          biodata: data2,
+                          biodata: data2[0],
+                          percentages: payment_percentages,
                           otherDetails: {
                             todaysStatus: "not new",
-                            percentages: payment_percentages,
                             registration_status: regStatus,
                             imageUrl: data2[0]
                               ? `http://${baseIp}:${port}/assets/${data2[0].image}`
@@ -3613,7 +3630,7 @@ app.post("/staffReg", (req, res) => {
 app.post("/studentSignout/", (req, res) => {
   const { studentNo, signed_in_by, signed_out_by, signin_time, signout_gate } =
     req.body;
-  // console.log(req.body);
+  console.log(req.body);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
   const time = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
