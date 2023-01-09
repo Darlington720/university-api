@@ -20,9 +20,44 @@ var moment = require("moment");
 // console.log(stu_id);
 // console.log("Enhanced2", enhanced2);
 
-var a = moment("11:31:04PM", "h:mm:ssA");
-var b = moment("4:50:41PM", "h:mm:ssA");
+// var a = moment("11:31:04PM", "h:mm:ssA");
+// var b = moment("4:50:41PM", "h:mm:ssA");
+
 // const result = b.diff(a, "minutes");
+
 // console.log("result =", result);
-const result2 = b.diff(a);
-console.log("result2 =", moment.duration(result2).humanize());
+// const result2 = b.diff(a);
+// console.log("result2 =", moment.duration(result2).humanize());
+
+const arrayOfObjects = [
+  {
+    stdno: '"2200100540"',
+    regno: '"2022/AUG/HCBM/C231025/DAY/KLA"',
+    accesscode: '"2200100540"',
+    name: '"KUNGU ABDULRWAHUMAN"',
+    sex: '"M"',
+  },
+  {
+    stdno: '"2200100540"',
+    regno: '"2022/AUG/HCBM/C231025/DAY/KLA"',
+    accesscode: '"2200100540"',
+    name: '"KUNGU ABDULRWAHUMAN"',
+    sex: '"M"',
+  },
+];
+
+const modifiedArray = arrayOfObjects.map((obj) => {
+  const newObj = {};
+  for (const key in obj) {
+    newObj[key] = obj[key].replace(/"/g, "");
+  }
+  return newObj;
+});
+
+// console.log(modifiedArray[0].name);
+/* Output:
+[
+  { stdno: '2200100540', regno: '2022/AUG/HCBM/C231025/DAY/KLA', accesscode: '2200100540', name: 'KUNGU ABDULRWAHUMAN', sex: 'M' },
+  { stdno: '2200100540', regno: '2022/AUG/HCBM/C231025/DAY/KLA', accesscode: '2200100540', name: 'KUNGU ABDULRWAHUMAN', sex: 'M' }
+]
+*/
