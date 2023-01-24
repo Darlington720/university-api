@@ -386,7 +386,7 @@ app.post("/importExceltodb", (req, res) => {
                     ? 0
                     : parseInt(
                         ((parseInt(cleanTotalPaid) +
-                          parseInt(cleanTotalCredit)) /
+                          parseInt(cleanTotalCredinsertsit)) /
                           parseInt(cleanTotalBill)) *
                           100
                       ),
@@ -995,6 +995,45 @@ app.get(`/gates/:campus`, (req, res) => {
     });
 });
 
+// app.post("/saveToken", (req, res) => {
+//   console.log("Obj received", req.body);
+//   // database
+//   //   .select("*")
+//   //   .from("users")
+//   //   .where({
+//   //     username: username,
+//   //     password: password,
+//   //   })
+//   //   .update({
+//   //     token: token,
+//   //   })
+//   //   .then((data2) => {
+//   //     console.log(`Updated ${username}'s push token`, data2);
+//   //   })
+//   //   .catch((err) => {
+//   //     console.log("error in storing token", err);
+//   //   });
+// });
+
+app.post("/saveToken", (req, res) => {
+  console.log("Obj received", req.body);
+  database
+    .select("*")
+    .from("users")
+    .where({
+      id: req.body.user_id,
+    })
+    .update({
+      token: req.body.token,
+    })
+    .then((data2) => {
+      console.log(`Updated ${req.body.name}'s push token`, data2);
+    })
+    .catch((err) => {
+      console.log("error in storing token", err);
+    });
+});
+
 app.get(`/studentBiodata/:stdno`, (req, res) => {
   const { stdno } = req.params;
   console.log(req.params);
@@ -1292,7 +1331,7 @@ app.post("/myCourseUnitsTodayDashboard/", (req, res) => {
   // console.log(lectures.split(","));
 
   // console.log(Array.isArray(req.body));
-  // console.log("received data", req.body);
+  console.log("received data dashboard", req.body);
   // console.log("from the client ", req.body.my_array);
   // console.log("from the client ", req.body.day);
   const d = new Date();
@@ -1333,7 +1372,7 @@ app.post("/myCourseUnitsTodayDashboard/", (req, res) => {
       // newArr.push(data);
       // console.log("response here", data);
       data.forEach((item) => {
-        req.body.my_array.forEach((reqItem) => {
+        JSON.parse(req.body.myArray).forEach((reqItem) => {
           if (item.c_unit_id == reqItem) {
             //console.log(item.c_unit_id, reqItem);
             newArr.push(item);
@@ -1356,8 +1395,8 @@ app.post("/myCourseUnitsToday/", (req, res) => {
   // let arr = lectures.split(",");
   // console.log(lectures.split(","));
 
-  // console.log(Array.isArray(req.body));
-  //console.log("Data received", req.body);
+  console.log(Array.isArray(req.body));
+  // console.log("Data received", req.body);
   // console.log("from the client ", req.body.day);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -1375,6 +1414,7 @@ app.post("/myCourseUnitsToday/", (req, res) => {
   let newArr = [];
   let lectureDetails = [];
   let counter = 0;
+  let sortedLectureDetails = [];
 
   // arr.forEach((e) => {
   // console.log("lecture ", parseInt(e));
@@ -1434,7 +1474,7 @@ app.post("/myCourseUnitsToday/", (req, res) => {
       // newArr.push(data);
       // console.log("another response herer", data);
 
-      data.forEach((item) => {
+      data.map((item) => {
         // database
         //   .select("*")
         //   .from("lectures")
@@ -1444,7 +1484,7 @@ app.post("/myCourseUnitsToday/", (req, res) => {
         //     // lecturer_id,
         //   })
         //   .then((data3) => {
-        req.body.my_array.forEach((reqItem, index) => {
+        JSON.parse(req.body.myArray).map((reqItem, index) => {
           if (item.c_unit_id == reqItem) {
             var m2 = moment(
               `${req.body.date} ${item.end_time}`,
@@ -1514,22 +1554,18 @@ app.post("/myCourseUnitsToday/", (req, res) => {
           });
         });
 
-      if (newArr.length === 0) {
-        res.send(newArr);
-      }
+      // console.log("results", newArr);
+
+      // if (newArr.length === 0) {
+      //   res.send(newArr);
+      // }
 
       // console.log("length start2", newArr.length);
-      newArr.forEach((lecture, index) => {
-        // console.log("new arr inside loop", newArr);
-        // console.log("lecture class Reps", classRepInfo);
-        database
+      const fetch_3 = newArr.map((lecture, index) => {
+        return database
           .select("*")
           .from("users")
           .join("class_reps", "users.stu_no", "=", "class_reps.class_rep_id")
-          // .where({
-          //   // day_id: 1,
-          //   for_wc_cu: lecture.c_unit_id,
-          // })
           .where("class_reps.for_wc_cu", "=", lecture.c_unit_id)
           .then((classRepInfo) => {
             counter++;
@@ -1537,21 +1573,19 @@ app.post("/myCourseUnitsToday/", (req, res) => {
             // console.log("Index", index);
             lectureDetails.push({ ...lecture, classRepInfo });
 
-            return lectureDetails;
-          })
-          .then((data) => {
-            // console.log(`loop through ${counter}, ${newArr.length}`);
-            if (newArr.length === counter) {
-              const sortedAsc = data.sort(
-                (objA, objB) =>
-                  moment(objA.start_time, "h:mmA") -
-                  moment(objB.start_time, "h:mmA")
-              );
-              res.send(sortedAsc);
-              // console.log("new arr", sortedAsc);
-              // res.send(sortedAsc);
-            }
+            // return lectureDetails;
           });
+        // .then((data) => {
+        //   // if (newArr.length === counter) {
+        //     const sortedAsc = data.sort(
+        //       (objA, objB) =>
+        //         moment(objA.start_time, "h:mmA") -
+        //         moment(objB.start_time, "h:mmA")
+        //     );
+        //     res.send(sortedAsc);
+
+        //   // }
+        // });
       });
       // console.log("Done");
       // console.log("length2333333", newArr.length);
@@ -1559,6 +1593,15 @@ app.post("/myCourseUnitsToday/", (req, res) => {
       // res.send(newArr);
 
       let arr = [];
+
+      Promise.all(fetch_3).then(() => {
+        // console.log("Resulting data", lectureDetails);
+        const sortedAsc = lectureDetails.sort(
+          (objA, objB) =>
+            moment(objA.start_time, "h:mmA") - moment(objB.start_time, "h:mmA")
+        );
+        res.send(sortedAsc);
+      });
     });
 
   // res.send(newArr);
@@ -1812,47 +1855,59 @@ app.post("/lecturerCourseunits/", (req, res) => {
           // res.send(newArr);
           // console.log("REsult", newArr);
 
-          if (newArr.length === 0) {
-            res.send(newArr);
-          }
-          newArr.map((lecture, index) => {
-            database
-              .select("*")
-              .from("users")
-              .join(
-                "class_reps",
-                "users.stu_no",
-                "=",
-                "class_reps.class_rep_id"
-              )
-              // .where({
-              //   // day_id: 1,
-              //   for_wc_cu: lecture.c_unit_id,
-              // })
-              .where("class_reps.for_wc_cu", "=", lecture.c_unit_id)
-              .orderBy("id")
-              .then((classRepInfo) => {
-                counter2++;
-                //  console.log("lecture class Reps", classRepInfo);
+          // if (newArr.length === 0) {
+          //   res.send(newArr);
+          // }
+          const fetch = newArr.map((lecture, index) => {
+            return (
+              database
+                .select("*")
+                .from("users")
+                .join(
+                  "class_reps",
+                  "users.stu_no",
+                  "=",
+                  "class_reps.class_rep_id"
+                )
+                // .where({
+                //   // day_id: 1,
+                //   for_wc_cu: lecture.c_unit_id,
+                // })
+                .where("class_reps.for_wc_cu", "=", lecture.c_unit_id)
+                .orderBy("id")
+                .then((classRepInfo) => {
+                  counter2++;
+                  //  console.log("lecture class Reps", classRepInfo);
 
-                lectureDetails.push({ ...lecture, classRepInfo });
-                // return { ...lecture, classRepInfo };
+                  lectureDetails.push({ ...lecture, classRepInfo });
+                  // return { ...lecture, classRepInfo };
 
-                return lectureDetails;
-              })
-              .then((data) => {
-                // console.log(`loop through ${counter2}, ${newArr.length}`);
-                if (newArr.length === counter2) {
-                  const sortedAsc = data.sort(
-                    (objA, objB) =>
-                      moment(objA.start_time, "h:mmA") -
-                      moment(objB.start_time, "h:mmA")
-                  );
-                  res.send(sortedAsc);
-                  // console.log("new arr", sortedAsc);
-                  // res.send(sortedAsc);
-                }
-              });
+                  // return lectureDetails;
+                })
+            );
+            // .then((data) => {
+            //   // console.log(`loop through ${counter2}, ${newArr.length}`);
+            //   if (newArr.length === counter2) {
+            //     const sortedAsc = data.sort(
+            //       (objA, objB) =>
+            //         moment(objA.start_time, "h:mmA") -
+            //         moment(objB.start_time, "h:mmA")
+            //     );
+            //     res.send(sortedAsc);
+            //     // console.log("new arr", sortedAsc);
+            //     // res.send(sortedAsc);
+            //   }
+            // });
+          });
+
+          Promise.all(fetch).then(() => {
+            // console.log("Resulting data", lectureDetails);
+            const sortedAsc = lectureDetails.sort(
+              (objA, objB) =>
+                moment(objA.start_time, "h:mmA") -
+                moment(objB.start_time, "h:mmA")
+            );
+            res.send(sortedAsc);
           });
 
           // console.log(newArr);
@@ -4090,22 +4145,6 @@ app.post("/api/login", (req, res) => {
       if (!user[0]) {
         return res.status(400).json({ error: "Invalid email or password " });
       } else {
-        database
-          .select("*")
-          .from("users")
-          .where({
-            username: username,
-            password: password,
-          })
-          .update({
-            token: token,
-          })
-          .then((data2) => {
-            console.log(`Updated ${username}'s push token`, data2);
-          })
-          .catch((err) => {
-            console.log("error in storing token", err);
-          });
         if (user[0].role == "Student") {
           database
             // .orderBy("id")
@@ -5625,6 +5664,9 @@ io.on("connection", (socket) => {
               lectureData: lectureData[0],
             });
           });
+      })
+      .catch((err) => {
+        console.log("Error in updating lecture rating", err);
       });
   });
 
@@ -5821,6 +5863,9 @@ io.on("connection", (socket) => {
                   data
                 );
               });
+          })
+          .catch((err) => {
+            console.log("Error in adding student to class", err);
           });
         // console.log(normalStudent);
         // console.log(
@@ -5909,10 +5954,9 @@ io.on("connection", (socket) => {
         }
       })
 
-      .catch(
-        (err) => {}
-        // res.send(err)
-      );
+      .catch((err) => {
+        console.log("Error in updating lecture rating", err);
+      });
 
     database("lecture_members")
       .join("users", "lecture_members.member_id", "=", "users.stu_no")
@@ -6000,6 +6044,9 @@ io.on("connection", (socket) => {
         members.push(user);
         checkMembers("/", roomToJoin);
         // console.log("members so far", members);
+      })
+      .catch((err) => {
+        console.log("Error in updating lecture rating", err);
       });
 
     // members.splice(indexOfObject, 1);
@@ -6339,6 +6386,9 @@ io.on("connection", (socket) => {
 
                       return 0;
                       // }
+                    })
+                    .catch((err) => {
+                      console.log("Error in updating lecture rating", err);
                     });
                 }
               }
@@ -6394,6 +6444,9 @@ io.on("connection", (socket) => {
 
                     return 0;
                   });
+              })
+              .catch((err) => {
+                console.log("Error in updating lecture rating", err);
               });
             // }
             return result;
@@ -6530,7 +6583,8 @@ const addMember = (
           //res.send([...data, data8]);
           console.log("updatedMembersListfromLecturer", data);
           io.in(`${lecture_id}`).emit("updatedMembersList", data);
-        });
+        })
+        .catch((err) => console.log(err));
     });
 
   return res;
