@@ -4611,20 +4611,21 @@ app.get("/getEnrolledStudents/:course_id", (req, res) => {
       "=",
       "students_biodata.stdno"
     )
-    .leftJoin(
-      "lecture_members",
-      "stu_selected_course_units.stu_id",
-      "=",
-      "lecture_members.member_id"
-    )
+    // .leftJoin(
+    //   "class_reps",
+    //   "stu_selected_course_units.stu_id",
+    //   "=",
+    //   "class_reps.class_rep_id"
+    // )
     .select(
       "stu_selected_course_units.c_id",
       "stu_selected_course_units.stu_id",
-      "lecture_members.is_class_rep",
+      // "lecture_members.is_class_rep",
       "students_biodata.progcode",
       "users.userfull_name",
       "users.role"
     )
+    // .select("*")
     // .select(
     //   "lecture_members.id",
     //   "lecture_members.date",
@@ -4644,7 +4645,25 @@ app.get("/getEnrolledStudents/:course_id", (req, res) => {
     })
     .then((data) => {
       //console.log("Enrolled students here", data);
-      res.send(data);
+
+      database("class_reps")
+        .select("*")
+        .where({
+          for_wc_cu: course_id,
+        })
+        .then((data2) => {
+          let arr = [];
+          data.map((student) => {
+            data2.map((cr) => {
+              if (student.stu_id == cr.class_rep_id) {
+                arr.push({ ...student, is_class_rep: 1 });
+              } else {
+                arr.push(student);
+              }
+            });
+          });
+          res.send(arr);
+        });
     });
 });
 
