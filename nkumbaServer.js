@@ -1326,22 +1326,8 @@ app.get("/mySelectedCourseUnits/:stu_no", (req, res) => {
 });
 
 app.post("/myCourseUnitsTodayDashboard/", (req, res) => {
-  // const { lectures } = req.params;
-  // let arr = lectures.split(",");
-  // console.log(lectures.split(","));
-
-  // console.log(Array.isArray(req.body));
-  console.log("received data dashboard", req.body);
-  // console.log("from the client ", req.body.my_array);
-  // console.log("from the client ", req.body.day);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
-  //console.log(d.getDay());
-  let newArr = [];
-
-  // arr.forEach((e) => {
-  // console.log("lecture ", parseInt(e));
-  // newArr.push(e);
 
   database
     .select("*")
@@ -1361,33 +1347,68 @@ app.post("/myCourseUnitsTodayDashboard/", (req, res) => {
     )
     .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
     .join("schools", "timetable.school_id", "=", "schools.school_id")
+    .leftJoin("lectures", function () {
+      this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+        .andOn(
+          "lectures.l_year",
+          "=",
+          parseInt(
+            req.body.selectedYear ? req.body.selectedYear : d.getFullYear()
+          )
+        )
+        .andOn(
+          "lectures.l_month",
+          "=",
+          parseInt(
+            req.body.selectedMonth ? req.body.selectedMonth : d.getMonth() + 1
+          )
+        )
+        .andOn(
+          "lectures.l_date",
+          "=",
+          parseInt(req.body.selected ? req.body.selected : d.getDate())
+        );
+    })
+    // .where("lectures.date", "=", req.body.date)
     .andWhere("stu_selected_course_units.stu_id", "=", req.body.stu_no)
-    // .join("modules", function () {
-    //   this.on("timetable.course_unit_name", "=", "modules.course_name");
-    //   //.andOn("stu_selected_course_units.course", "=", "modules.course_code");
-    // })
-    // .where("c_unit_id", "=", 1)
     .orderBy("start_time")
     .then((data) => {
       // newArr.push(data);
-      // console.log("response here", data);
-      data.forEach((item) => {
-        JSON.parse(req.body.myArray).forEach((reqItem) => {
-          if (item.c_unit_id == reqItem) {
-            //console.log(item.c_unit_id, reqItem);
-            newArr.push(item);
-          } else {
-            // console.log("else " + item.c_unit_id, reqItem);
-          }
-        });
+      // console.log("another response herer", data);
+      let lectureDetails = [];
+      const fetch_3 = data.map((lecture, index) => {
+        return database
+          .select("*")
+          .from("users")
+          .join("class_reps", "users.stu_no", "=", "class_reps.class_rep_id")
+          .where("class_reps.for_wc_cu", "=", lecture.c_unit_id)
+          .then((classRepInfo) => {
+            // console.log("Index", index);
+            lectureDetails.push({ ...lecture, classRepInfo });
+
+            // return lectureDetails;
+          });
       });
-      // console.log("New array", newArr);
-      res.send(newArr);
 
-      // });
+      Promise.all(fetch_3).then(() => {
+        // console.log("Resulting array", lectureDetails);
+        const sortedAsc = lectureDetails.sort(
+          (objA, objB) =>
+            moment(objA.start_time, "h:mmA") - moment(objB.start_time, "h:mmA")
+        );
+
+        let finalArr = [];
+
+        sortedAsc.map((l) => {
+          finalArr.push({
+            ...l,
+            fullSelectedDate: date,
+          });
+        });
+
+        res.send(finalArr);
+      });
     });
-
-  // res.send(newArr);
 });
 
 app.post("/myCourseUnitsToday/", (req, res) => {
@@ -1395,8 +1416,8 @@ app.post("/myCourseUnitsToday/", (req, res) => {
   // let arr = lectures.split(",");
   // console.log(lectures.split(","));
 
-  console.log(Array.isArray(req.body));
-  // console.log("Data received", req.body);
+  // console.log("is Array result", Array.isArray(req.body));
+  console.log("Data received", req.body);
   // console.log("from the client ", req.body.day);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -1407,6 +1428,8 @@ app.post("/myCourseUnitsToday/", (req, res) => {
   let currentTime = new Date().toLocaleTimeString();
 
   var m1 = moment(`${date} 7:00AM`, "YYYY-MM--DD h:mmA");
+  // var m1 = moment(`2023-01-30 7:00AM`, "YYYY-MM--DD h:mmA");
+
   // var m1 = moment();
 
   var moment1 = moment(`${date}`, "YYYY-MM--DD");
@@ -1595,7 +1618,7 @@ app.post("/myCourseUnitsToday/", (req, res) => {
       let arr = [];
 
       Promise.all(fetch_3).then(() => {
-        // console.log("Resulting data", lectureDetails);
+        // console.log("Resulting array", lectureDetails);
         const sortedAsc = lectureDetails.sort(
           (objA, objB) =>
             moment(objA.start_time, "h:mmA") - moment(objB.start_time, "h:mmA")
@@ -1606,6 +1629,223 @@ app.post("/myCourseUnitsToday/", (req, res) => {
 
   // res.send(newArr);
 });
+
+// app.post("/myCourseUnitsToday/", (req, res) => {
+//   // const { lectures } = req.params;
+//   // let arr = lectures.split(",");
+//   // console.log(lectures.split(","));
+
+//   console.log("is Array result", Array.isArray(req.body));
+//   console.log("Data received", req.body);
+//   // console.log("from the client ", req.body.day);
+//   const d = new Date();
+//   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+//   // console.log(d.getDay());
+
+//   // console.log("from the client ", req.body.my_array);
+//   // console.log("date ", date);
+//   let currentTime = new Date().toLocaleTimeString();
+
+//   var m1 = moment(`${date} 7:00AM`, "YYYY-MM--DD h:mmA");
+//   // var m1 = moment();
+
+//   var moment1 = moment(`${date}`, "YYYY-MM--DD");
+//   // var moment1 = moment();
+//   let newArr = [];
+//   let lectureDetails = [];
+//   let counter = 0;
+//   let sortedLectureDetails = [];
+
+//   // arr.forEach((e) => {
+//   // console.log("lecture ", parseInt(e));
+//   // newArr.push(e);
+
+//   database
+//     .select("*")
+//     .from("timetable")
+//     // .join("lectures", "timetable.tt_id", "=", "lectures.tt_id")
+//     .where("day_id", "=", req.body.day)
+//     .andWhere("timetable.school", "=", req.body.school)
+//     .andWhere("timetable.study_time", "=", req.body.study_time)
+//     // .where("day_id", "=", req.body.day)
+
+//     //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
+//     .join(
+//       "stu_selected_course_units",
+//       "timetable.c_unit_id",
+//       "=",
+//       "stu_selected_course_units.course_id"
+//     )
+//     .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
+//     .join("schools", "timetable.school_id", "=", "schools.school_id")
+//     // .leftJoin("users", "timetable.c_unit_id", "=", "users.for_wc_cu")
+//     // .leftJoin("lectures", "timetable.tt_id", "lectures.l_tt_id")
+//     // .join("modules", function () {
+//     //   this.on("timetable.course_unit_name", "=", "modules.course_name");
+//     //   //.andOn("stu_selected_course_units.course", "=", "modules.course_code");
+//     // })
+
+//     .leftJoin("lectures", function () {
+//       this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+//         .andOn(
+//           "lectures.l_year",
+//           "=",
+//           parseInt(
+//             req.body.selectedYear ? req.body.selectedYear : d.getFullYear()
+//           )
+//         )
+//         .andOn(
+//           "lectures.l_month",
+//           "=",
+//           parseInt(
+//             req.body.selectedMonth ? req.body.selectedMonth : d.getMonth() + 1
+//           )
+//         )
+//         .andOn(
+//           "lectures.l_date",
+//           "=",
+//           parseInt(req.body.selected ? req.body.selected : d.getDate())
+//         );
+//     })
+//     // .where("lectures.date", "=", req.body.date)
+//     .andWhere("stu_selected_course_units.stu_id", "=", req.body.stu_no)
+//     .orderBy("start_time")
+//     .then((data) => {
+//       // newArr.push(data);
+//       // console.log("another response herer", data);
+
+//       data.map((item) => {
+//         // database
+//         //   .select("*")
+//         //   .from("lectures")
+//         //   .where({
+//         //     date: req.body.date,
+//         //     l_tt_id: item.tt_id,
+//         //     // lecturer_id,
+//         //   })
+//         //   .then((data3) => {
+//         JSON.parse(req.body.myArray).map((reqItem, index) => {
+//           if (item.c_unit_id == reqItem) {
+//             var m2 = moment(
+//               `${req.body.date} ${item.end_time}`,
+//               "YYYY-MM--DD h:mmA"
+//             );
+
+//             var moment2 = moment(
+//               `${req.body.date} ${item.end_time}`,
+//               "YYYY-MM--DD"
+//             );
+//             if (moment.duration(moment2.diff(moment1))._data.days > 0) {
+//               // console.log(moment.duration(moment2.diff(moment1))._data.days);
+//               // console.log("Lecture is not supposed to be taught now");
+//               newArr.push({ ...item, status: "not now" });
+//               // console.log({ ...item, status: "not now" });
+//             } else {
+//               if (m1.isBefore(m2)) {
+//                 // console.log({ ...item, status: "on" });
+//                 newArr.push({ ...item, status: "on" });
+//                 // console.log("Lecture is still on");
+//               } else {
+//                 // console.log({ ...item, status: "off" });
+//                 newArr.push({ ...item, status: "off" });
+//                 // console.log("Lecture is supposed to have ended");
+//               }
+//             }
+
+//             // newArr.push(item);
+
+//             // console.log({ ...item, ...data3[0] });
+
+//             // console.log(item.c_unit_id, reqItem);
+//           } else {
+//             // console.log("else " + item.c_unit_id, reqItem);
+//           }
+//         });
+//         // })
+
+//         return true;
+//       });
+
+//       database
+//         .select("*")
+//         .from("lecture_members")
+//         .where("date", "=", req.body.date)
+//         .andWhere("member_id", "=", req.body.stu_no)
+//         .then((data10) => {
+//           // console.log("attended students", data10);
+//           data10.forEach((member) => {
+//             newArr.forEach((lecture, i) => {
+//               if (lecture.has_ended && member.lecture_id == lecture.c_unit_id) {
+//                 // console.log(
+//                 //   "He atttended the lecture jkdjdjkdjkjkdjkd",
+//                 //   newArr.length
+//                 // );
+//                 // newArr.push({ ...lecture, attendedLecture: "true" });
+//                 newArr[i].attendedLecture = true;
+//               } else if (lecture.has_ended) {
+//                 // console.log("He diddnt atttended the lecture jkdjdjkdjkjkdjkd");
+//                 // newArr.push({ ...lecture, attendedLecture: "false" });
+//                 newArr[i].attendedLecture = false;
+//               }
+//             });
+
+//             // console.log("bjdfjdfjdfjfdj", newArr.length);
+//             //console.log("data", newArr);
+//           });
+//         });
+
+//       // console.log("results", newArr);
+
+//       // if (newArr.length === 0) {
+//       //   res.send(newArr);
+//       // }
+
+//       // console.log("length start2", newArr.length);
+//       const fetch_3 = newArr.map((lecture, index) => {
+//         return database
+//           .select("*")
+//           .from("users")
+//           .join("class_reps", "users.stu_no", "=", "class_reps.class_rep_id")
+//           .where("class_reps.for_wc_cu", "=", lecture.c_unit_id)
+//           .then((classRepInfo) => {
+//             counter++;
+
+//             // console.log("Index", index);
+//             lectureDetails.push({ ...lecture, classRepInfo });
+
+//             // return lectureDetails;
+//           });
+//         // .then((data) => {
+//         //   // if (newArr.length === counter) {
+//         //     const sortedAsc = data.sort(
+//         //       (objA, objB) =>
+//         //         moment(objA.start_time, "h:mmA") -
+//         //         moment(objB.start_time, "h:mmA")
+//         //     );
+//         //     res.send(sortedAsc);
+
+//         //   // }
+//         // });
+//       });
+//       // console.log("Done");
+//       // console.log("length2333333", newArr.length);
+
+//       // res.send(newArr);
+
+//       let arr = [];
+
+//       Promise.all(fetch_3).then(() => {
+//         console.log("Resulting data", lectureDetails);
+//         const sortedAsc = lectureDetails.sort(
+//           (objA, objB) =>
+//             moment(objA.start_time, "h:mmA") - moment(objB.start_time, "h:mmA")
+//         );
+//         res.send(sortedAsc);
+//       });
+//     });
+
+//   // res.send(newArr);
+// });
 
 app.get("/weeklyChartData", (req, res) => {
   let arr = [];
@@ -2011,13 +2251,33 @@ app.get("/getClassRepInfo/:course_id", (req, res) => {
 
   //console.log("Enrolled students here", data);
   database
-    .select("*")
-    .from("users")
-    .join("class_reps", "users.stu_no", "=", "class_reps.class_rep_id")
+    // .select("*")
+    .from("lecture_members")
+    .join("users", "lecture_members.member_id", "=", "users.stu_no")
+    .join(
+      "class_reps",
+      "lecture_members.member_id",
+      "=",
+      "class_reps.class_rep_id"
+    )
     // .where({
     //   stu_no: stuno,
     // })
     .where("class_reps.for_wc_cu", "=", course_id)
+    .select(
+      // "lecture_members.id",
+      // "lecture_members.date",
+      // "lecture_members.lecture_id",
+      "lecture_members.is_class_rep",
+      // "lecture_members.status",
+      // "lecture_members.joined_at",
+      // "lecture_members.rating",
+      "class_reps.for_wc_cu",
+      "class_reps.cr_id",
+      "users.role",
+      "users.userfull_name",
+      "users.stu_no"
+    )
     .then((data) => {
       console.log("response", data);
       res.send(data);
@@ -2029,9 +2289,36 @@ app.get("/getAllClassReps/:course_id", (req, res) => {
   //console.log(req.params);
 
   database
-    .select("*")
-    .from("users")
-    .join("class_reps", "users.stu_no", "=", "class_reps.class_rep_id")
+    // .select("*")
+    .from("class_reps")
+    .join(
+      "lecture_members",
+      "class_reps.class_rep_id",
+      "=",
+      "lecture_members.member_id"
+    )
+
+    .join("users", "class_reps.class_rep_id", "=", "users.stu_no")
+    .leftJoin(
+      "students_biodata",
+      "class_reps.class_rep_id",
+      "=",
+      "students_biodata.stdno"
+    )
+    .select(
+      // "lecture_members.id",
+      // "lecture_members.date",
+      // "lecture_members.lecture_id",
+      "lecture_members.is_class_rep",
+      // "lecture_members.status",
+      // "lecture_members.joined_at",
+      // "lecture_members.rating",
+      "class_reps.cr_id",
+      "users.role",
+      "users.userfull_name",
+      "users.stu_no",
+      "students_biodata.progcode"
+    )
     // .where({
     //   stu_no: stuno,
     // })
@@ -4031,6 +4318,41 @@ app.post("/staffSignout/", (req, res) => {
 });
 
 //check out which students subscribed for a particular lecture
+// app.post("/checkStudentSubscription/", (req, res) => {
+//   const { course_id, stu_id, date } = req.body;
+//   //console.log(req.body);
+//   const d = new Date();
+//   // const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+//   database("stu_selected_course_units")
+//     .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
+
+//     .select("*")
+
+//     .where({
+//       course_id,
+//       stu_id,
+//     })
+//     .then((data) => {
+//       database("lecture_members")
+//         .join(
+//           "lectures",
+//           "lecture_members.lecture_id",
+//           "=",
+//           "lectures.course_unit_id"
+//         )
+//         .where(function () {
+//           this.where("member_id", "=", stu_id);
+//         })
+//         .andWhere("lecture_members.lecture_id", course_id)
+//         .andWhere("lecture_members.date", date)
+//         .then((data8) => {
+//           res.send([{ ...data[0], ...data8[0] }]);
+//         });
+//     });
+// });
+
+//watch out for this one
 app.post("/checkStudentSubscription/", (req, res) => {
   const { course_id, stu_id, date } = req.body;
   //console.log(req.body);
@@ -4060,37 +4382,219 @@ app.post("/checkStudentSubscription/", (req, res) => {
 
 //get the data about lectures that already started
 app.post("/getLectureData/", (req, res) => {
-  const { course_id, tt_id, day_id, selectedDate } = req.body;
+  const { course_id, tt_id, day_id, selectedDate, stu_id } = req.body;
   //console.log(req.body);
   const d = new Date(selectedDate);
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
   // console.log("Loooking for date", date);
 
-  database("lectures")
-    // .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
+  database
     .select("*")
+    .from("timetable")
 
-    .where({
-      course_unit_id: course_id,
-      l_tt_id: tt_id,
-      l_day_id: day_id,
-      date,
+    .andWhere("timetable.tt_id", "=", tt_id)
+    // .join(
+    //   "stu_selected_course_units",
+    //   "timetable.c_unit_id",
+    //   "=",
+    //   "stu_selected_course_units.course_id"
+    // )
+    .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
+    .join("schools", "timetable.school_id", "=", "schools.school_id")
+
+    .leftJoin("lectures", function () {
+      this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+        .andOn("lectures.course_unit_id", "=", database.raw("?", [course_id]))
+        .andOn("lectures.l_day_id", "=", database.raw("?", [day_id]))
+        .andOn("lectures.date", "=", database.raw("?", [date]));
     })
+    // .leftJoin("lectures", "timetable.tt_id", "=", "lectures.l_tt_id")
+    // .where({
+    //   course_unit_id: course_id,
+    //   l_day_id: day_id,
+    //   // date: "2023-01-30",
+    // })
     .then((data) => {
+      // res.send(data);
+
       database("lecture_members")
         .join("users", "lecture_members.member_id", "=", "users.stu_no")
-        .select("*")
+        .leftJoin(
+          "students_biodata",
+          "lecture_members.member_id",
+          "=",
+          "students_biodata.stdno"
+        )
+        .select(
+          "lecture_members.id",
+          "lecture_members.date",
+          "lecture_members.lecture_id",
+          "lecture_members.is_class_rep",
+          "lecture_members.status",
+          "lecture_members.joined_at",
+          "lecture_members.rating",
+          "users.role",
+          "users.userfull_name",
+          "users.stu_no",
+          "students_biodata.progcode"
+        )
 
         .where({
           lecture_id: course_id,
           day_id,
-          date,
+          date: selectedDate,
+          // member_id: stu_id,
         })
         .then((data8) => {
-          res.send([...data, data8]);
-        });
+          // let classReps = [];
+          // data8.forEach((student) => {
+          //   if (student.is_class_rep == 1) {
+          //     classReps.push(student);
+          //   }
+          // });
+          let lectureInfo = { ...data[0] };
+
+          database
+            .select("*")
+            .from("lecture_members")
+            .where("date", "=", selectedDate)
+            .andWhere("member_id", "=", stu_id)
+            .andWhere("lecture_id", "=", course_id)
+            .then((data10) => {
+              // console.log("attended students", data10);
+              if (data10.length > 0) {
+                if (
+                  data[0].has_ended &&
+                  data10[0].lecture_id == data[0].c_unit_id
+                ) {
+                  //Attended the lecture
+                  console.log("Attended the lecture");
+                  lectureInfo = { ...data[0], attendedLecture: true };
+                } else if (data[0].has_ended) {
+                  //didnt attend the lecture
+                  console.log("Didnt attend the lecture");
+                  lectureInfo = { ...data[0], attendedLecture: false };
+                }
+              } else {
+                console.log("The lecture has not yet started");
+                lectureInfo = {
+                  ...data[0],
+                  attendedLecture: "Not yet started",
+                };
+              }
+
+              database
+                .select("*")
+                .from("users")
+                .join(
+                  "class_reps",
+                  "users.stu_no",
+                  "=",
+                  "class_reps.class_rep_id"
+                )
+                .where("class_reps.for_wc_cu", "=", course_id)
+                .then((classRepInfo) => {
+                  res.send({
+                    success: true,
+                    data: {
+                      lecture: lectureInfo,
+                      classReps: classRepInfo,
+                      members: data8,
+                    },
+                  });
+                });
+            });
+        })
+        .catch((err) =>
+          res.send({
+            result: "fail",
+            message: "error in retrieving the lecture data",
+          })
+        );
     });
+
+  // database("lectures")
+  //   .join("timetable", "lectures.l_tt_id", "=", "timetable.tt_id")
+  //   .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
+  //   .select("*")
+  //   .where({
+  //     course_unit_id: course_id,
+  //     l_tt_id: tt_id,
+  //     l_day_id: day_id,
+  //     date: "2023-01-30",
+  //   })
+  //   .then((data) => {
+  //     database("lecture_members")
+  //       .join("users", "lecture_members.member_id", "=", "users.stu_no")
+  //       .leftJoin(
+  //         "students_biodata",
+  //         "lecture_members.member_id",
+  //         "=",
+  //         "students_biodata.stdno"
+  //       )
+  //       .select(
+  //         "lecture_members.id",
+  //         "lecture_members.date",
+  //         "lecture_members.lecture_id",
+  //         "lecture_members.is_class_rep",
+  //         "lecture_members.status",
+  //         "lecture_members.joined_at",
+  //         "lecture_members.rating",
+  //         "users.role",
+  //         "users.userfull_name",
+  //         "users.stu_no",
+  //         "students_biodata.progcode"
+  //       )
+
+  //       .where({
+  //         lecture_id: course_id,
+  //         day_id,
+  //         date: "2023-01-30",
+  //         // member_id: stu_id,
+  //       })
+  //       .then((data8) => {
+  //         let classReps = [];
+  //         data8.forEach((student) => {
+  //           if (student.is_class_rep == 1) {
+  //             classReps.push(student);
+  //           }
+  //         });
+  //         res.send({
+  //           success: true,
+  //           data: {
+  //             lecture: data[0],
+  //             classReps: classReps,
+  //             members: data8,
+  //           },
+  //         });
+  //       })
+  //       .catch((err) =>
+  //         res.send({
+  //           result: "fail",
+  //           message: "error in retrieving the lecture data",
+  //         })
+  //       );
+  //   });
 });
+
+// app.get("/getEnrolledStudents/:course_id", (req, res) => {
+//   const { course_id } = req.params;
+//   //console.log("enrollment sent records", req.params);
+//   const d = new Date();
+//   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+//   database("stu_selected_course_units")
+//     .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
+//     .select("*")
+
+//     .where({
+//       course_id,
+//     })
+//     .then((data) => {
+//       //console.log("Enrolled students here", data);
+//       res.send(data);
+//     });
+// });
 
 app.get("/getEnrolledStudents/:course_id", (req, res) => {
   const { course_id } = req.params;
@@ -4100,26 +4604,40 @@ app.get("/getEnrolledStudents/:course_id", (req, res) => {
 
   database("stu_selected_course_units")
     .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
-    .select("*")
 
-    .where({
-      course_id,
-    })
-    .then((data) => {
-      //console.log("Enrolled students here", data);
-      res.send(data);
-    });
-});
-
-app.get("/getEnrolledStudents/:course_id", (req, res) => {
-  const { course_id } = req.params;
-  //console.log("enrollment sent records", req.params);
-  const d = new Date();
-  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
-
-  database("stu_selected_course_units")
-    .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
-    .select("*")
+    .leftJoin(
+      "students_biodata",
+      "stu_selected_course_units.stu_id",
+      "=",
+      "students_biodata.stdno"
+    )
+    .leftJoin(
+      "lecture_members",
+      "stu_selected_course_units.stu_id",
+      "=",
+      "lecture_members.member_id"
+    )
+    .select(
+      "stu_selected_course_units.c_id",
+      "stu_selected_course_units.stu_id",
+      "lecture_members.is_class_rep",
+      "students_biodata.progcode",
+      "users.userfull_name",
+      "users.role"
+    )
+    // .select(
+    //   "lecture_members.id",
+    //   "lecture_members.date",
+    //   "lecture_members.lecture_id",
+    //   "lecture_members.is_class_rep",
+    //   "lecture_members.status",
+    //   "lecture_members.joined_at",
+    //   "lecture_members.rating",
+    //   "users.role",
+    //   "users.userfull_name",
+    //   "users.stu_no",
+    //   "students_biodata.progcode"
+    // )
 
     .where({
       course_id,
@@ -5358,6 +5876,108 @@ app.post("/lectureHasEnded", (req, res) => {
             lectureData: lectureData[0],
           });
           // io.in(`${socket.id}`).emit("endedLectureDetails", );
+
+          database
+            .select("*")
+            .from("timetable")
+            // .join("lectures", "timetable.tt_id", "=", "lectures.tt_id")
+            .where("day_id", "=", data.day_id)
+            .andWhere("timetable.tt_id", "=", data.tt_id)
+            // .andWhere("timetable.study_time", "=", req.body.study_time)
+            // .where("day_id", "=", req.body.day)
+
+            //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
+            .join(
+              "stu_selected_course_units",
+              "timetable.c_unit_id",
+              "=",
+              "stu_selected_course_units.course_id"
+            )
+            .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
+            .join("schools", "timetable.school_id", "=", "schools.school_id")
+            .leftJoin("lectures", function () {
+              this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+                .andOn("lectures.l_year", "=", parseInt(d.getFullYear()))
+                .andOn("lectures.l_month", "=", parseInt(d.getMonth() + 1))
+                .andOn("lectures.l_date", "=", parseInt(d.getDate()));
+            })
+            // .where("lectures.date", "=", req.body.date)
+            .andWhere("stu_selected_course_units.stu_id", "=", data.stdno)
+            .andWhere("timetable.c_unit_id", "=", data.lecture_id)
+            .orderBy("start_time")
+            .then((myData) => {
+              // newArr.push(data);
+              // console.log("another response herer", data);
+              let lectureDetails = [];
+              const fetch_3 = myData.map((lecture, index) => {
+                return database
+                  .select("*")
+                  .from("users")
+                  .join(
+                    "class_reps",
+                    "users.stu_no",
+                    "=",
+                    "class_reps.class_rep_id"
+                  )
+                  .where("class_reps.for_wc_cu", "=", data.lecture_id)
+                  .then((classRepInfo) => {
+                    // console.log("Index", index);
+                    lectureDetails.push({ ...lecture, classRepInfo });
+
+                    // return lectureDetails;
+                  });
+              });
+
+              Promise.all(fetch_3).then(() => {
+                // console.log("Resulting array", lectureDetails);
+                const sortedAsc = lectureDetails.sort(
+                  (objA, objB) =>
+                    moment(objA.start_time, "h:mmA") -
+                    moment(objB.start_time, "h:mmA")
+                );
+
+                let finalArr = [];
+
+                sortedAsc.map((l) => {
+                  finalArr.push({
+                    ...l,
+                    fullSelectedDate: date,
+                  });
+                });
+
+                // res.send(finalArr);
+                //send notifications
+                database("stu_selected_course_units")
+                  .join(
+                    "users",
+                    "stu_selected_course_units.stu_id",
+                    "=",
+                    "users.stu_no"
+                  )
+                  .select("*")
+
+                  .where({
+                    course_id: data.lecture_id,
+                  })
+                  .then((stuData) => {
+                    console.log("Enrolled students here", stuData);
+                    let c_data = [];
+                    stuData.forEach((student) => {
+                      if (student.token) {
+                        sendPushNotifications(
+                          `${student.token}`,
+                          `Thank you for rating this lecture!!`,
+                          `${student.course_name}`,
+                          { ...finalArr[0], navigateTo: "todaysLectures" }
+                        );
+                      }
+                      // });
+                    });
+
+                    //res.send(data);
+                  });
+              });
+            });
         });
     });
 });
@@ -5596,6 +6216,143 @@ io.on("connection", (socket) => {
               lectureData: res[0],
             });
           });
+
+        database
+          .select("*")
+          .from("timetable")
+          // .join("lectures", "timetable.tt_id", "=", "lectures.tt_id")
+          .where("day_id", "=", msg.day_id)
+          .andWhere("timetable.tt_id", "=", msg.timetable_id)
+          // .andWhere("timetable.study_time", "=", req.body.study_time)
+          // .where("day_id", "=", req.body.day)
+
+          //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
+          .join(
+            "stu_selected_course_units",
+            "timetable.c_unit_id",
+            "=",
+            "stu_selected_course_units.course_id"
+          )
+          .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
+          .join("schools", "timetable.school_id", "=", "schools.school_id")
+          .leftJoin("lectures", function () {
+            this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+              .andOn("lectures.l_year", "=", parseInt(d.getFullYear()))
+              .andOn("lectures.l_month", "=", parseInt(d.getMonth() + 1))
+              .andOn("lectures.l_date", "=", parseInt(d.getDate()));
+          })
+          // .where("lectures.date", "=", req.body.date)
+          .andWhere("stu_selected_course_units.stu_id", "=", msg.stdno)
+          .andWhere("timetable.c_unit_id", "=", msg.course_unit_id)
+          .orderBy("start_time")
+          .then((myData) => {
+            // newArr.push(data);
+            // console.log("another response herer", data);
+            let lectureDetails = [];
+            const fetch_3 = myData.map((lecture, index) => {
+              return database
+                .select("*")
+                .from("users")
+                .join(
+                  "class_reps",
+                  "users.stu_no",
+                  "=",
+                  "class_reps.class_rep_id"
+                )
+                .where("class_reps.for_wc_cu", "=", msg.course_unit_id)
+                .then((classRepInfo) => {
+                  // console.log("Index", index);
+                  lectureDetails.push({ ...lecture, classRepInfo });
+
+                  // return lectureDetails;
+                });
+            });
+
+            Promise.all(fetch_3).then(() => {
+              // console.log("Resulting array", lectureDetails);
+              const sortedAsc = lectureDetails.sort(
+                (objA, objB) =>
+                  moment(objA.start_time, "h:mmA") -
+                  moment(objB.start_time, "h:mmA")
+              );
+
+              let finalArr = [];
+
+              sortedAsc.map((l) => {
+                finalArr.push({
+                  ...l,
+                  fullSelectedDate: date,
+                });
+              });
+
+              // res.send(finalArr);
+              //send notifications
+              database("stu_selected_course_units")
+                .join(
+                  "users",
+                  "stu_selected_course_units.stu_id",
+                  "=",
+                  "users.stu_no"
+                )
+                .select("*")
+
+                .where({
+                  course_id: msg.course_unit_id,
+                })
+                .then((stuData) => {
+                  console.log("Enrolled students here", stuData);
+                  let c_data = [];
+                  stuData.forEach((student) => {
+                    if (student.token) {
+                      sendPushNotifications(
+                        `${student.token}`,
+                        `The lecture has ended, Would you wish to rate this lecture?`,
+                        `${student.course_name}`,
+                        {
+                          ...finalArr[0],
+                          navigateTo: "todaysLectures",
+                          endLecture: true,
+                        }
+                      );
+                    }
+                    // });
+                  });
+
+                  //res.send(data);
+                });
+            });
+          });
+
+        // //send notifications
+        // database("stu_selected_course_units")
+        //   .join(
+        //     "users",
+        //     "stu_selected_course_units.stu_id",
+        //     "=",
+        //     "users.stu_no"
+        //   )
+        //   .select("*")
+
+        //   .where({
+        //     course_id: msg.course_unit_id,
+        //   })
+        //   .then((stuData) => {
+        //     console.log("Enrolled students here", stuData);
+        //     let c_data = [];
+        //     stuData.forEach((student) => {
+        //       if (student.token) {
+        //         sendPushNotifications(
+        //           `${student.token}`,
+        //           `The lecture has ended, Would you wish to rate this lecture?`,
+        //           `${student.course_name}`,
+        //           { navigateTo: "todaysLectures" }
+        //         );
+        //       }
+        //       // });
+        //     });
+
+        //     //res.send(data);
+        //   });
       })
       .catch((err) => {
         console.log("Error in updating lecture ended", err);
@@ -6332,13 +7089,14 @@ io.on("connection", (socket) => {
             //     return 0;
             //   });
 
-            members.forEach((member) => {
+            const fetch = members.forEach((member) => {
+              let result;
               if (member.room == `${data2[0].c_unit_id}`) {
                 if (member.role == "Lecturer") {
                   member.status = "true";
                   //inserting the lecturer in the lecture members table
 
-                  database("lecture_members")
+                  result = database("lecture_members")
                     .where(function () {
                       this.where("member_id", "=", member.id);
                     })
@@ -6380,7 +7138,7 @@ io.on("connection", (socket) => {
                         })
                         .then((data8) => {
                           //res.send([...data, data8]);
-                          console.log("updatedMembersListfromLecturer", data8);
+                          // console.log("updatedMembersListfromLecturer", data8);
                           io.in(`${room}`).emit("updatedMembersList", data8);
                         });
 
@@ -6392,63 +7150,65 @@ io.on("connection", (socket) => {
                     });
                 }
               }
+              return result;
             });
 
             // if ( && data.lectureMode == 1) {
             // member.status = "true";
+            if (data.lectureMode == 1) {
+              database("lecture_members")
+                .where(function () {
+                  this.where("member_id", "=", data.stu_no);
+                })
+                .andWhere("lecture_id", data.lecture_id)
+                .andWhere("date", date)
+                .then((data10) => {
+                  // console.log("Member in database", data10);
+                  if (data10.length == 0) {
+                    //user is not there, so we a adding the student
+                    addMember(
+                      data.stu_no,
+                      data.day_id,
 
-            database("lecture_members")
-              .where(function () {
-                this.where("member_id", "=", data.stu_no);
-              })
-              .andWhere("lecture_id", data.lecture_id)
-              .andWhere("date", date)
-              .then((data10) => {
-                // console.log("Member in database", data10);
-                if (data10.length == 0) {
-                  //user is not there, so we a adding the student
-                  addMember(
-                    data.stu_no,
-                    data.day_id,
-
-                    date,
-                    data.lecture_id,
-                    1,
-                    1,
-                    new Date().toLocaleTimeString()
-                  );
-                }
-                return 0;
-              })
-              .then((result) => {
-                database("lecture_members")
-                  .join(
-                    "users",
-                    "lecture_members.member_id",
-                    "=",
-                    "users.stu_no"
-                  )
-                  .select("*")
-                  .where({
-                    lecture_id: data.lecture_id,
-                    day_id: data.day_id,
-                    date: date,
-                  })
-                  .then((membersInDB) => {
-                    //res.send([...data, data8]);
-                    //console.log("updatedMembersList", membersInDB);
-                    io.in(`${room}`).emit(
-                      "updatedMembersListfromclassrep",
-                      membersInDB
+                      date,
+                      data.lecture_id,
+                      1,
+                      1,
+                      new Date().toLocaleTimeString()
                     );
+                  }
+                  return 0;
+                })
+                .then((result) => {
+                  database("lecture_members")
+                    .join(
+                      "users",
+                      "lecture_members.member_id",
+                      "=",
+                      "users.stu_no"
+                    )
+                    .select("*")
+                    .where({
+                      lecture_id: data.lecture_id,
+                      day_id: data.day_id,
+                      date: date,
+                    })
+                    .then((membersInDB) => {
+                      //res.send([...data, data8]);
+                      //console.log("updatedMembersList", membersInDB);
+                      io.in(`${room}`).emit(
+                        "updatedMembersListfromclassrep",
+                        membersInDB
+                      );
 
-                    return 0;
-                  });
-              })
-              .catch((err) => {
-                console.log("Error in updating lecture rating", err);
-              });
-            // }
+                      return 0;
+                    });
+                })
+                .catch((err) => {
+                  console.log("Error in updating lecture rating", err);
+                });
+              // }
+            }
             return result;
           });
       })
@@ -6467,34 +7227,137 @@ io.on("connection", (socket) => {
             // console.log("updatedMembersListfromoutside", updates2);
             io.in(`${room}`).emit("updatedMembersList", updates2);
             checkMembers("/", room);
+
+            //prepare data for notifications
+            database
+              .select("*")
+              .from("timetable")
+              // .join("lectures", "timetable.tt_id", "=", "lectures.tt_id")
+              .where("day_id", "=", data.day_id)
+              .andWhere("timetable.tt_id", "=", data.timetable_id)
+              // .andWhere("timetable.study_time", "=", req.body.study_time)
+              // .where("day_id", "=", req.body.day)
+
+              //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
+              .join(
+                "stu_selected_course_units",
+                "timetable.c_unit_id",
+                "=",
+                "stu_selected_course_units.course_id"
+              )
+              .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
+              .join("schools", "timetable.school_id", "=", "schools.school_id")
+              .leftJoin("lectures", function () {
+                this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+                  .andOn("lectures.l_year", "=", parseInt(d.getFullYear()))
+                  .andOn("lectures.l_month", "=", parseInt(d.getMonth() + 1))
+                  .andOn("lectures.l_date", "=", parseInt(d.getDate()));
+              })
+              // .where("lectures.date", "=", req.body.date)
+              // .andWhere("stu_selected_course_units.stu_id", "=", data.stu_no)
+              .andWhere("timetable.c_unit_id", "=", data.lecture_id)
+              .orderBy("start_time")
+              .then((myData) => {
+                // newArr.push(data);
+                // console.log("another response herer", data);
+                let lectureDetails = [];
+                const fetch_3 = myData.map((lecture, index) => {
+                  return database
+                    .select("*")
+                    .from("users")
+                    .join(
+                      "class_reps",
+                      "users.stu_no",
+                      "=",
+                      "class_reps.class_rep_id"
+                    )
+                    .where("class_reps.for_wc_cu", "=", data.lecture_id)
+                    .then((classRepInfo) => {
+                      // console.log("Index", index);
+                      lectureDetails.push({ ...lecture, classRepInfo });
+
+                      // return lectureDetails;
+                    });
+                });
+
+                Promise.all(fetch_3).then(() => {
+                  // console.log("Resulting array", lectureDetails);
+                  const sortedAsc = lectureDetails.sort(
+                    (objA, objB) =>
+                      moment(objA.start_time, "h:mmA") -
+                      moment(objB.start_time, "h:mmA")
+                  );
+
+                  let finalArr = [];
+
+                  sortedAsc.map((l) => {
+                    finalArr.push({
+                      ...l,
+                      fullSelectedDate: date,
+                    });
+                  });
+
+                  // res.send(finalArr);
+                  //send notifications
+                  database("stu_selected_course_units")
+                    .join(
+                      "users",
+                      "stu_selected_course_units.stu_id",
+                      "=",
+                      "users.stu_no"
+                    )
+                    .select("*")
+
+                    .where({
+                      course_id: data.lecture_id,
+                    })
+                    .then((stuData) => {
+                      // console.log("Enrolled students here", stuData);
+                      let c_data = [];
+                      stuData.forEach((student) => {
+                        if (student.token) {
+                          sendPushNotifications(
+                            `${student.token}`,
+                            `The lecture has started`,
+                            `${student.course_name}`,
+                            { ...finalArr[0], navigateTo: "todaysLectures" }
+                          );
+                        }
+                        // });
+                      });
+
+                      //res.send(data);
+                    });
+                });
+              });
           });
       });
 
     //send notifications
-    database("stu_selected_course_units")
-      .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
-      .select("*")
+    // database("stu_selected_course_units")
+    //   .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
+    //   .select("*")
 
-      .where({
-        course_id: data.lecture_id,
-      })
-      .then((stuData) => {
-        console.log("Enrolled students here", stuData);
-        let c_data = [];
-        stuData.forEach((student) => {
-          if (student.token) {
-            sendPushNotifications(
-              `${student.token}`,
-              `The lecture has started`,
-              `${student.course_name}`,
-              { navigateTo: "todaysLectures" }
-            );
-          }
-          // });
-        });
+    //   .where({
+    //     course_id: data.lecture_id,
+    //   })
+    //   .then((stuData) => {
+    //     console.log("Enrolled students here", stuData);
+    //     let c_data = [];
+    //     stuData.forEach((student) => {
+    //       if (student.token) {
+    //         sendPushNotifications(
+    //           `${student.token}`,
+    //           `The lecture has started`,
+    //           `${student.course_name}`,
+    //           { navigateTo: "todaysLectures" }
+    //         );
+    //       }
+    //       // });
+    //     });
 
-        //res.send(data);
-      });
+    //     //res.send(data);
+    //   });
   });
 
   // const roomTitle = [...socket.rooms];
@@ -6581,7 +7444,7 @@ const addMember = (
         })
         .then((data) => {
           //res.send([...data, data8]);
-          console.log("updatedMembersListfromLecturer", data);
+          // console.log("updatedMembersListfromLecturer", data);
           io.in(`${lecture_id}`).emit("updatedMembersList", data);
         })
         .catch((err) => console.log(err));
