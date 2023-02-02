@@ -1427,12 +1427,13 @@ app.post("/myCourseUnitsToday/", (req, res) => {
   // console.log("date ", date);
   let currentTime = new Date().toLocaleTimeString();
 
-  var m1 = moment(`${date} 7:00AM`, "YYYY-MM--DD h:mmA");
-  // var m1 = moment(`2023-01-30 7:00AM`, "YYYY-MM--DD h:mmA");
+  // var m1 = moment(`${date} 7:00AM`, "YYYY-MM--DD h:mmA");
+  var m1 = moment(`2023-02-01 7:00AM`, "YYYY-MM--DD h:mmA");
 
   // var m1 = moment();
 
-  var moment1 = moment(`${date}`, "YYYY-MM--DD");
+  // var moment1 = moment(`${date}`, "YYYY-MM--DD");
+  var moment1 = moment(`2023-02-01`, "YYYY-MM--DD");
   // var moment1 = moment();
   let newArr = [];
   let lectureDetails = [];
@@ -2005,10 +2006,13 @@ app.post("/lecturerCourseunits/", (req, res) => {
 
   let currentTime = new Date().toLocaleTimeString();
 
-  var m1 = moment(`${date} 7:00AM`, "YYYY-MM--DD h:mmA");
+  // var m1 = moment(`${date} 7:00AM`, "YYYY-MM--DD h:mmA");
+  var m1 = moment(`2023-02-01 7:00AM`, "YYYY-MM--DD h:mmA");
+
   // var m1 = moment();
 
-  var moment1 = moment(`${date}`, "YYYY-MM--DD");
+  // var moment1 = moment(`${date}`, "YYYY-MM--DD");
+  var moment1 = moment(`2023-02-01`, "YYYY-MM--DD");
   // var moment1 = moment();
 
   database
@@ -4654,13 +4658,17 @@ app.get("/getEnrolledStudents/:course_id", (req, res) => {
         .then((data2) => {
           let arr = [];
           data.map((student) => {
-            data2.map((cr) => {
-              if (student.stu_id == cr.class_rep_id) {
-                arr.push({ ...student, is_class_rep: 1 });
-              } else {
-                arr.push(student);
-              }
-            });
+            if (data2.length > 0) {
+              data2.map((cr) => {
+                if (student.stu_id == cr.class_rep_id) {
+                  arr.push({ ...student, is_class_rep: 1 });
+                } else {
+                  arr.push(student);
+                }
+              });
+            } else {
+              arr = data2;
+            }
           });
           res.send(arr);
         });
