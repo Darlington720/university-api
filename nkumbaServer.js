@@ -14,7 +14,6 @@ const moment = require("moment");
 const { sendPushNotifications } = require("./pushNotifications");
 var { baseIp, port, api, authApi, database } = require("./config");
 var request = require("request");
-const { create } = require("apisauce");
 const fileUpload = require("express-fileupload");
 const { finished } = require("stream");
 
@@ -75,13 +74,11 @@ let members = [];
 app.use(cors());
 app.use(express.static(__dirname + "/public"));
 app.use(fileUpload());
-// app.use(upload.any());
 app.use(
   bodyParser.urlencoded({
     extended: true,
   })
 );
-
 app.use(bodyParser.json());
 
 const data = [
@@ -100,7 +97,6 @@ const data = [
   "lectures",
   "course_units",
   "users",
-  "constraints",
   "Voters",
   "rooms",
   "exam_sessions",
@@ -132,6 +128,53 @@ data.map((item) =>
       });
   })
 );
+
+app.get("/api/lectureTimetable", (req, res) => {
+  database
+    .from("lecture_timetable")
+    .join(
+      "lecture_sessions",
+      "lecture_timetable.session_id",
+      "lecture_sessions.ls_id "
+    )
+    .leftJoin(
+      "timetable_groups",
+      "lecture_timetable.timetable_group_id",
+      "timetable_groups.tt_gr_id "
+    )
+    .join("study_time", "timetable_groups.study_time_id", "study_time.st_id")
+    .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
+    .join("schools", "timetable_groups.school_id", "schools.school_id")
+
+    .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
+    .select(
+      "lecture_timetable.tt_id",
+      "lecture_timetable.day_id",
+      "lecture_sessions.start_time",
+      "lecture_sessions.end_time",
+      "rooms.room_name",
+      "lecture_timetable.c_unit_id",
+      "lecture_timetable.course_unit_name",
+      "lecture_timetable.lecturer_id",
+      "schools.alias",
+      "schools.school_id",
+      "study_time.study_time_name",
+      "staff.*"
+    )
+    .then((lec) => {
+      const lectures = lec.map((obj) => {
+        const newObj = Object.assign({}, obj, {
+          school: obj.alias,
+          study_time: obj.study_time_name,
+        });
+
+        delete newObj.alias;
+        delete newObj.study_time_name;
+        return newObj;
+      });
+      res.send(lectures);
+    });
+});
 
 //dina
 app.post("/saveDinaTableDetails", (req, res) => {
@@ -809,175 +852,175 @@ app.get("/lastUploadDateForFees", (req, res) => {
 //   });
 // });
 
-app.get("/nkumbastudentbiodata/:studentNo", (req, res) => {
-  // res.send("getting the data");
-  // console.log("agent", navigator.userAgent);
-  const { studentNo } = req.params;
+// app.get("/nkumbastudentbiodata/:studentNo", (req, res) => {
+//   // res.send("getting the data");
+//   // console.log("agent", navigator.userAgent);
+//   const { studentNo } = req.params;
 
-  // console.log("api now", api);
+//   // console.log("api now", api);
 
-  const formData = {
-    action: "portal",
-    method: "load_reg_std",
-    data: [{ stdno: `${studentNo}`, inst_code: "nkumba" }],
-    type: "rpc",
-    tid: 9,
-  };
+//   const formData = {
+//     action: "portal",
+//     method: "load_reg_std",
+//     data: [{ stdno: `${studentNo}`, inst_code: "nkumba" }],
+//     type: "rpc",
+//     tid: 9,
+//   };
 
-  api.post("/", formData).then((response) => {
-    if (!response.ok) {
-      return res.send("Failed to get the data from the server");
-    }
+//   api.post("/", formData).then((response) => {
+//     if (!response.ok) {
+//       return res.send("Failed to get the data from the server");
+//     }
 
-    if (response.data.result.success) {
-      res.send(response.data);
-    } else {
-      var data = {
-        action: "zauth",
-        method: "login",
-        data: [
-          {
-            user_id: "2000101041",
-            pwd: "4e38038e13cdc3207ab2bb487839c4f7",
-            inst_code: "nkumba",
-            dp: "38666531623966662D653861322D343435382D393234332D3434303562366262326138647C7C323032322D31312D32377E323032322D31312D32387E323032322D31312D3239",
-            tk: "2f114fbbc8e00cd9005180a79891ddb59126e72c95f231802be7f7db82c4bfb4",
-            rt: "38666531623966662D653861322D343435382D393234332D343430356236626232613864",
-          },
-        ],
-        type: "rpc",
-        tid: 17,
-      };
+//     if (response.data.result.success) {
+//       res.send(response.data);
+//     } else {
+//       var data = {
+//         action: "zauth",
+//         method: "login",
+//         data: [
+//           {
+//             user_id: "2000101041",
+//             pwd: "4e38038e13cdc3207ab2bb487839c4f7",
+//             inst_code: "nkumba",
+//             dp: "38666531623966662D653861322D343435382D393234332D3434303562366262326138647C7C323032322D31312D32377E323032322D31312D32387E323032322D31312D3239",
+//             tk: "2f114fbbc8e00cd9005180a79891ddb59126e72c95f231802be7f7db82c4bfb4",
+//             rt: "38666531623966662D653861322D343435382D393234332D343430356236626232613864",
+//           },
+//         ],
+//         type: "rpc",
+//         tid: 17,
+//       };
 
-      authApi.post("/bridge", data).then((response) => {
-        if (!response.ok) {
-          return res.send("Failed to get the data from the server");
-        }
+//       authApi.post("/bridge", data).then((response) => {
+//         if (!response.ok) {
+//           return res.send("Failed to get the data from the server");
+//         }
 
-        let newCookies = "";
+//         let newCookies = "";
 
-        // console.log("response headers", response.headers["set-cookie"]);
+//         // console.log("response headers", response.headers["set-cookie"]);
 
-        for (var i = 0; i < 4; i++) {
-          // console.log(response.headers["set-cookie"][i].split(";"));
-          newCookies += `${response.headers["set-cookie"][i].split(";")[0]}; `;
-        }
+//         for (var i = 0; i < 4; i++) {
+//           // console.log(response.headers["set-cookie"][i].split(";"));
+//           newCookies += `${response.headers["set-cookie"][i].split(";")[0]}; `;
+//         }
 
-        console.log("Resulting cokkiess", newCookies);
-        api = create({
-          baseURL: "https://student.nkumbauniversity.ac.ug/bridge",
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.11 (KHTML, like Gecko) Ubuntu/11.10 Chromium/27.0.1453.93 Chrome/27.0.1453.93 Safari/537.36",
-            "Content-Type": "text/plain",
-            Cookie: newCookies,
-          },
-        });
+//         console.log("Resulting cokkiess", newCookies);
+//         api = create({
+//           baseURL: "https://student.nkumbauniversity.ac.ug/bridge",
+//           headers: {
+//             "User-Agent":
+//               "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.11 (KHTML, like Gecko) Ubuntu/11.10 Chromium/27.0.1453.93 Chrome/27.0.1453.93 Safari/537.36",
+//             "Content-Type": "text/plain",
+//             Cookie: newCookies,
+//           },
+//         });
 
-        api.post("/", formData).then((r) => {
-          if (!r.ok) {
-            return res.send("Failed to get the data from the server");
-          }
+//         api.post("/", formData).then((r) => {
+//           if (!r.ok) {
+//             return res.send("Failed to get the data from the server");
+//           }
 
-          res.send(r.data);
-        });
-        // res.send(response.data);
-      });
-    }
-  });
-});
+//           res.send(r.data);
+//         });
+//         // res.send(response.data);
+//       });
+//     }
+//   });
+// });
 
-app.post("/nkumbaStudentRegisteredModules", (req, res) => {
-  const { stdno, studyYr, sem, progcode, progvsn } = req.body;
+// app.post("/nkumbaStudentRegisteredModules", (req, res) => {
+//   const { stdno, studyYr, sem, progcode, progvsn } = req.body;
 
-  console.log("am sending this", req.body);
+//   console.log("am sending this", req.body);
 
-  // const api = create({
-  //   baseURL: "https://student.nkumbauniversity.ac.ug/",
-  //   headers: {
-  //     "User-Agent":
-  //       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36",
-  //     "Content-Type": "text/plain",
-  //     Cookie:
-  //       "ai=64353437633533343261653465376333346266366561643762383131303033337C7C6E6B756D6261; as=34356466366431353531653138363965333133663666306630613338343333367C7C32303030313031303431; asc=28d19482b47e924c12a066537a9de933; ast=6ae18f8d-1874-4169-8d58-c19240687b72-1669583680",
-  //   },
-  // });
+//   // const api = create({
+//   //   baseURL: "https://student.nkumbauniversity.ac.ug/",
+//   //   headers: {
+//   //     "User-Agent":
+//   //       "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36",
+//   //     "Content-Type": "text/plain",
+//   //     Cookie:
+//   //       "ai=64353437633533343261653465376333346266366561643762383131303033337C7C6E6B756D6261; as=34356466366431353531653138363965333133663666306630613338343333367C7C32303030313031303431; asc=28d19482b47e924c12a066537a9de933; ast=6ae18f8d-1874-4169-8d58-c19240687b72-1669583680",
+//   //   },
+//   // });
 
-  const formData = {
-    action: "portal",
-    method: "load_modules",
-    data: [
-      {
-        stdno: `${stdno}`,
-        study_yr: `${studyYr}`,
-        sem: `${sem}`,
-        progcode: `${progcode}`,
-        progvsn: `${progvsn}`,
-        page: 1,
-        start: 0,
-        limit: 20,
-      },
-    ],
-    type: "rpc",
-    tid: 19,
-  };
+//   const formData = {
+//     action: "portal",
+//     method: "load_modules",
+//     data: [
+//       {
+//         stdno: `${stdno}`,
+//         study_yr: `${studyYr}`,
+//         sem: `${sem}`,
+//         progcode: `${progcode}`,
+//         progvsn: `${progvsn}`,
+//         page: 1,
+//         start: 0,
+//         limit: 20,
+//       },
+//     ],
+//     type: "rpc",
+//     tid: 19,
+//   };
 
-  api.post("/bridge", formData).then((response) => {
-    if (!response.ok) {
-      return res.send("Failed to get the data from the server");
-    }
+//   api.post("/bridge", formData).then((response) => {
+//     if (!response.ok) {
+//       return res.send("Failed to get the data from the server");
+//     }
 
-    res.send(response.data);
-  });
-});
+//     res.send(response.data);
+//   });
+// });
 
-app.post("/nkumbaLogin", (req, res) => {
-  // const { stdno, studyYr, sem, progcode, progvsn } = req.body;
-  var data = {
-    action: "zauth",
-    method: "login",
-    data: [
-      {
-        user_id: "2000101041",
-        pwd: "4e38038e13cdc3207ab2bb487839c4f7",
-        inst_code: "nkumba",
-        dp: "38666531623966662D653861322D343435382D393234332D3434303562366262326138647C7C323032322D31312D32377E323032322D31312D32387E323032322D31312D3239",
-        tk: "2f114fbbc8e00cd9005180a79891ddb59126e72c95f231802be7f7db82c4bfb4",
-        rt: "38666531623966662D653861322D343435382D393234332D343430356236626232613864",
-      },
-    ],
-    type: "rpc",
-    tid: 17,
-  };
+// app.post("/nkumbaLogin", (req, res) => {
+//   // const { stdno, studyYr, sem, progcode, progvsn } = req.body;
+//   var data = {
+//     action: "zauth",
+//     method: "login",
+//     data: [
+//       {
+//         user_id: "2000101041",
+//         pwd: "4e38038e13cdc3207ab2bb487839c4f7",
+//         inst_code: "nkumba",
+//         dp: "38666531623966662D653861322D343435382D393234332D3434303562366262326138647C7C323032322D31312D32377E323032322D31312D32387E323032322D31312D3239",
+//         tk: "2f114fbbc8e00cd9005180a79891ddb59126e72c95f231802be7f7db82c4bfb4",
+//         rt: "38666531623966662D653861322D343435382D393234332D343430356236626232613864",
+//       },
+//     ],
+//     type: "rpc",
+//     tid: 17,
+//   };
 
-  authApi.post("/bridge", data).then((response) => {
-    if (!response.ok) {
-      return res.send("Failed to get the data from the server");
-    }
+//   authApi.post("/bridge", data).then((response) => {
+//     if (!response.ok) {
+//       return res.send("Failed to get the data from the server");
+//     }
 
-    let newCookies = "";
+//     let newCookies = "";
 
-    // console.log("response headers", response.headers["set-cookie"]);
+//     // console.log("response headers", response.headers["set-cookie"]);
 
-    for (var i = 0; i < 4; i++) {
-      // console.log(response.headers["set-cookie"][i].split(";"));
-      newCookies += `${response.headers["set-cookie"][i].split(";")[0]}; `;
-    }
+//     for (var i = 0; i < 4; i++) {
+//       // console.log(response.headers["set-cookie"][i].split(";"));
+//       newCookies += `${response.headers["set-cookie"][i].split(";")[0]}; `;
+//     }
 
-    console.log("Resulting cokkiess", newCookies);
-    api = create({
-      baseURL: "https://student.nkumbauniversity.ac.ug/bridge",
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.11 (KHTML, like Gecko) Ubuntu/11.10 Chromium/27.0.1453.93 Chrome/27.0.1453.93 Safari/537.36",
-        "Content-Type": "text/plain",
-        Cookie: newCookies,
-      },
-    });
+//     console.log("Resulting cokkiess", newCookies);
+//     api = create({
+//       baseURL: "https://student.nkumbauniversity.ac.ug/bridge",
+//       headers: {
+//         "User-Agent":
+//           "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.11 (KHTML, like Gecko) Ubuntu/11.10 Chromium/27.0.1453.93 Chrome/27.0.1453.93 Safari/537.36",
+//         "Content-Type": "text/plain",
+//         Cookie: newCookies,
+//       },
+//     });
 
-    res.send(response.data);
-  });
-});
+//     res.send(response.data);
+//   });
+// });
 
 app.get(`/gates/:campus`, (req, res) => {
   const { campus } = req.params;
@@ -1016,7 +1059,7 @@ app.get(`/gates/:campus`, (req, res) => {
 // });
 
 app.post("/saveToken", (req, res) => {
-  console.log("Obj received", req.body);
+  // console.log("Obj received", req.body);
   database
     .select("*")
     .from("users")
@@ -1027,10 +1070,12 @@ app.post("/saveToken", (req, res) => {
       token: req.body.token,
     })
     .then((data2) => {
-      console.log(`Updated ${req.body.name}'s push token`, data2);
+      // console.log(`Updated ${req.body.name}'s push token`, data2);
+      res.end();
     })
     .catch((err) => {
       console.log("error in storing token", err);
+      res.end();
     });
 });
 
@@ -1155,16 +1200,22 @@ app.get("/image/:id", (req, res) => {
   console.log("Current directory", __dirname);
   // res.send("http://10.7.0.22:9000/assets/jacket.jpg");
 
-  fs.readFile(
-    __dirname + `/public/assets/${id.toUpperCase()}.jpg`,
-    (err, data) => {
-      if (err) {
-        res.sendFile(__dirname + `/public/assets/ph2.jpg`);
-      } else {
-        res.sendFile(__dirname + `/public/assets/${id.toUpperCase()}.jpg`);
+  try {
+    fs.readFile(
+      __dirname + `/public/assets/${id.toUpperCase()}.jpg`,
+      (err, data) => {
+        if (err) {
+          console.log("An identified error", err);
+          res.sendFile(__dirname + `/public/assets/ph2.jpg`);
+        } else {
+          res.sendFile(__dirname + `/public/assets/${id.toUpperCase()}.jpg`);
+        }
       }
-    }
-  );
+    );
+  } catch (error) {
+    console.log("Error getting image ", error);
+  }
+
   // try {
   //   res.sendFile(__dirname + `/public/assets/${id}.jpg`);
   // } catch (error) {
@@ -1329,26 +1380,83 @@ app.post("/myCourseUnitsTodayDashboard/", (req, res) => {
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 
+  // database
+  //   .select("*")
+  //   .from("timetable")
+  //   // .join("lectures", "timetable.tt_id", "=", "lectures.tt_id")
+  //   .where("day_id", "=", req.body.day)
+  //   .andWhere("timetable.school", "=", req.body.school)
+  //   .andWhere("timetable.study_time", "=", req.body.study_time)
+  //   // .where("day_id", "=", req.body.day)
+
+  //   //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
+  //   .join(
+  //     "stu_selected_course_units",
+  //     "timetable.c_unit_id",
+  //     "=",
+  //     "stu_selected_course_units.course_id"
+  //   )
+  //   .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
+  //   .join("schools", "timetable.school_id", "=", "schools.school_id")
+  //   .leftJoin("lectures", function () {
+  //     this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+  //       .andOn(
+  //         "lectures.l_year",
+  //         "=",
+  //         parseInt(
+  //           req.body.selectedYear ? req.body.selectedYear : d.getFullYear()
+  //         )
+  //       )
+  //       .andOn(
+  //         "lectures.l_month",
+  //         "=",
+  //         parseInt(
+  //           req.body.selectedMonth ? req.body.selectedMonth : d.getMonth() + 1
+  //         )
+  //       )
+  //       .andOn(
+  //         "lectures.l_date",
+  //         "=",
+  //         parseInt(req.body.selected ? req.body.selected : d.getDate())
+  //       );
+  //   })
+  //   // .where("lectures.date", "=", req.body.date)
+  //   .andWhere("stu_selected_course_units.stu_id", "=", req.body.stu_no)
+  //   .orderBy("start_time")
+  //   .then((data) => {
+
   database
-    .select("*")
-    .from("timetable")
-    // .join("lectures", "timetable.tt_id", "=", "lectures.tt_id")
+    .from("lecture_timetable")
+    .join(
+      "lecture_sessions",
+      "lecture_timetable.session_id",
+      "lecture_sessions.ls_id "
+    )
+    .leftJoin(
+      "timetable_groups",
+      "lecture_timetable.timetable_group_id",
+      "timetable_groups.tt_gr_id "
+    )
+    .join("study_time", "timetable_groups.study_time_id", "study_time.st_id")
+    .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
+    .join("schools", "timetable_groups.school_id", "schools.school_id")
+
     .where("day_id", "=", req.body.day)
-    .andWhere("timetable.school", "=", req.body.school)
-    .andWhere("timetable.study_time", "=", req.body.study_time)
+    .andWhere("schools.alias", "=", req.body.school)
+    .andWhere("study_time.study_time_name", "=", req.body.study_time)
     // .where("day_id", "=", req.body.day)
 
     //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
     .join(
       "stu_selected_course_units",
-      "timetable.c_unit_id",
+      "lecture_timetable.c_unit_id",
       "=",
       "stu_selected_course_units.course_id"
     )
-    .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
-    .join("schools", "timetable.school_id", "=", "schools.school_id")
+    .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
+
     .leftJoin("lectures", function () {
-      this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+      this.on("lecture_timetable.tt_id", "=", "lectures.l_tt_id")
         .andOn(
           "lectures.l_year",
           "=",
@@ -1369,10 +1477,38 @@ app.post("/myCourseUnitsTodayDashboard/", (req, res) => {
           parseInt(req.body.selected ? req.body.selected : d.getDate())
         );
     })
+    .select(
+      "lecture_timetable.tt_id",
+      "lecture_timetable.day_id",
+      "lecture_sessions.start_time",
+      "lecture_sessions.end_time",
+      "rooms.room_name",
+      "lecture_timetable.c_unit_id",
+      "lecture_timetable.course_unit_name",
+      "lecture_timetable.lecturer_id",
+      "schools.alias",
+      "schools.school_id",
+      "study_time.study_time_name",
+      "staff.*",
+      "stu_selected_course_units.*",
+      "lectures.*"
+    )
     // .where("lectures.date", "=", req.body.date)
     .andWhere("stu_selected_course_units.stu_id", "=", req.body.stu_no)
-    .orderBy("start_time")
-    .then((data) => {
+    // .orderBy("start_time")
+    .then((lec) => {
+      const data = lec.map((obj) => {
+        const newObj = Object.assign({}, obj, {
+          school: obj.alias,
+          study_time: obj.study_time_name,
+          room: obj.room_name,
+        });
+
+        delete newObj.alias;
+        delete newObj.study_time_name;
+        return newObj;
+      });
+
       // newArr.push(data);
       // console.log("another response herer", data);
       let lectureDetails = [];
@@ -1407,6 +1543,7 @@ app.post("/myCourseUnitsTodayDashboard/", (req, res) => {
         });
 
         res.send(finalArr);
+        // res.connection.destroy()
       });
     });
 });
@@ -1417,7 +1554,7 @@ app.post("/myCourseUnitsToday/", (req, res) => {
   // console.log(lectures.split(","));
 
   // console.log("is Array result", Array.isArray(req.body));
-  console.log("Data received", req.body);
+  //console.log("Data received", req.body);
   // console.log("from the client ", req.body.day);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -1427,13 +1564,13 @@ app.post("/myCourseUnitsToday/", (req, res) => {
   // console.log("date ", date);
   let currentTime = new Date().toLocaleTimeString();
 
-  // var m1 = moment(`${date} 7:00AM`, "YYYY-MM--DD h:mmA");
-  var m1 = moment(`2023-02-01 7:00AM`, "YYYY-MM--DD h:mmA");
+  var m1 = moment(`${date} 7:00AM`, "YYYY-MM--DD h:mmA");
+  // var m1 = moment(`2023-02-01 7:00AM`, "YYYY-MM--DD h:mmA");
 
   // var m1 = moment();
 
-  // var moment1 = moment(`${date}`, "YYYY-MM--DD");
-  var moment1 = moment(`2023-02-01`, "YYYY-MM--DD");
+  var moment1 = moment(`${date}`, "YYYY-MM--DD");
+  // var moment1 = moment(`2023-02-01`, "YYYY-MM--DD");
   // var moment1 = moment();
   let newArr = [];
   let lectureDetails = [];
@@ -1444,33 +1581,90 @@ app.post("/myCourseUnitsToday/", (req, res) => {
   // console.log("lecture ", parseInt(e));
   // newArr.push(e);
 
+  // database
+  //   .select("*")
+  //   .from("timetable")
+  //   // .join("lectures", "timetable.tt_id", "=", "lectures.tt_id")
+  //   .where("day_id", "=", req.body.day)
+  //   .andWhere("timetable.school", "=", req.body.school)
+  //   .andWhere("timetable.study_time", "=", req.body.study_time)
+  //   // .where("day_id", "=", req.body.day)
+
+  //   //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
+  //   .join(
+  //     "stu_selected_course_units",
+  //     "timetable.c_unit_id",
+  //     "=",
+  //     "stu_selected_course_units.course_id"
+  //   )
+  //   .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
+  //   .join("schools", "timetable.school_id", "=", "schools.school_id")
+  //   // .leftJoin("users", "timetable.c_unit_id", "=", "users.for_wc_cu")
+  //   // .leftJoin("lectures", "timetable.tt_id", "lectures.l_tt_id")
+  //   // .join("modules", function () {
+  //   //   this.on("timetable.course_unit_name", "=", "modules.course_name");
+  //   //   //.andOn("stu_selected_course_units.course", "=", "modules.course_code");
+  //   // })
+
+  //   .leftJoin("lectures", function () {
+  //     this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+  //       .andOn(
+  //         "lectures.l_year",
+  //         "=",
+  //         parseInt(
+  //           req.body.selectedYear ? req.body.selectedYear : d.getFullYear()
+  //         )
+  //       )
+  //       .andOn(
+  //         "lectures.l_month",
+  //         "=",
+  //         parseInt(
+  //           req.body.selectedMonth ? req.body.selectedMonth : d.getMonth() + 1
+  //         )
+  //       )
+  //       .andOn(
+  //         "lectures.l_date",
+  //         "=",
+  //         parseInt(req.body.selected ? req.body.selected : d.getDate())
+  //       );
+  //   })
+  //   // .where("lectures.date", "=", req.body.date)
+  //   .andWhere("stu_selected_course_units.stu_id", "=", req.body.stu_no)
+  //   .orderBy("start_time")
+  //   .then((data) => {
+
   database
-    .select("*")
-    .from("timetable")
-    // .join("lectures", "timetable.tt_id", "=", "lectures.tt_id")
+    .from("lecture_timetable")
+    .join(
+      "lecture_sessions",
+      "lecture_timetable.session_id",
+      "lecture_sessions.ls_id "
+    )
+    .leftJoin(
+      "timetable_groups",
+      "lecture_timetable.timetable_group_id",
+      "timetable_groups.tt_gr_id "
+    )
+    .join("study_time", "timetable_groups.study_time_id", "study_time.st_id")
+    .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
+    .join("schools", "timetable_groups.school_id", "schools.school_id")
+
     .where("day_id", "=", req.body.day)
-    .andWhere("timetable.school", "=", req.body.school)
-    .andWhere("timetable.study_time", "=", req.body.study_time)
+    .andWhere("schools.alias", "=", req.body.school)
+    .andWhere("study_time.study_time_name", "=", req.body.study_time)
     // .where("day_id", "=", req.body.day)
 
     //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
     .join(
       "stu_selected_course_units",
-      "timetable.c_unit_id",
+      "lecture_timetable.c_unit_id",
       "=",
       "stu_selected_course_units.course_id"
     )
-    .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
-    .join("schools", "timetable.school_id", "=", "schools.school_id")
-    // .leftJoin("users", "timetable.c_unit_id", "=", "users.for_wc_cu")
-    // .leftJoin("lectures", "timetable.tt_id", "lectures.l_tt_id")
-    // .join("modules", function () {
-    //   this.on("timetable.course_unit_name", "=", "modules.course_name");
-    //   //.andOn("stu_selected_course_units.course", "=", "modules.course_code");
-    // })
+    .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
 
     .leftJoin("lectures", function () {
-      this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+      this.on("lecture_timetable.tt_id", "=", "lectures.l_tt_id")
         .andOn(
           "lectures.l_year",
           "=",
@@ -1491,10 +1685,39 @@ app.post("/myCourseUnitsToday/", (req, res) => {
           parseInt(req.body.selected ? req.body.selected : d.getDate())
         );
     })
+    .select(
+      "lecture_timetable.tt_id",
+      "lecture_timetable.day_id",
+      "lecture_sessions.start_time",
+      "lecture_sessions.end_time",
+      "rooms.room_name",
+      "lecture_timetable.c_unit_id",
+      "lecture_timetable.course_unit_name",
+      "lecture_timetable.lecturer_id",
+      "schools.alias",
+      "schools.school_id",
+      "study_time.study_time_name",
+      "staff.*",
+      "stu_selected_course_units.*",
+      "lectures.*"
+    )
     // .where("lectures.date", "=", req.body.date)
     .andWhere("stu_selected_course_units.stu_id", "=", req.body.stu_no)
-    .orderBy("start_time")
-    .then((data) => {
+    // .orderBy("start_time")
+    .then((lec) => {
+      const data = lec.map((obj) => {
+        const newObj = Object.assign({}, obj, {
+          school: obj.alias,
+          study_time: obj.study_time_name,
+          room: obj.room_name,
+        });
+
+        delete newObj.alias;
+        delete newObj.study_time_name;
+        return newObj;
+      });
+      // res.send(lectures);
+
       // newArr.push(data);
       // console.log("another response herer", data);
 
@@ -1547,10 +1770,10 @@ app.post("/myCourseUnitsToday/", (req, res) => {
         });
         // })
 
-        return true;
+        // return true;
       });
 
-      database
+      const fetch_1 = database
         .select("*")
         .from("lecture_members")
         .where("date", "=", req.body.date)
@@ -1618,13 +1841,13 @@ app.post("/myCourseUnitsToday/", (req, res) => {
 
       let arr = [];
 
-      Promise.all(fetch_3).then(() => {
-        // console.log("Resulting array", lectureDetails);
+      Promise.all([...fetch_3, fetch_1]).then(() => {
         const sortedAsc = lectureDetails.sort(
           (objA, objB) =>
             moment(objA.start_time, "h:mmA") - moment(objB.start_time, "h:mmA")
         );
         res.send(sortedAsc);
+        // console.log("Resulting array", sortedAsc);
       });
     });
 
@@ -2006,30 +2229,41 @@ app.post("/lecturerCourseunits/", (req, res) => {
 
   let currentTime = new Date().toLocaleTimeString();
 
-  // var m1 = moment(`${date} 7:00AM`, "YYYY-MM--DD h:mmA");
-  var m1 = moment(`2023-02-01 7:00AM`, "YYYY-MM--DD h:mmA");
+  var m1 = moment(`${date} 7:00AM`, "YYYY-MM--DD h:mmA");
+  // var m1 = moment(`2023-02-01 7:00AM`, "YYYY-MM--DD h:mmA");
 
   // var m1 = moment();
 
-  // var moment1 = moment(`${date}`, "YYYY-MM--DD");
-  var moment1 = moment(`2023-02-01`, "YYYY-MM--DD");
+  var moment1 = moment(`${date}`, "YYYY-MM--DD");
+  // var moment1 = moment(`2023-02-01`, "YYYY-MM--DD");
   // var moment1 = moment();
 
   database
-    .select("*")
-    .from("timetable")
+    .from("lecture_timetable")
+    .join(
+      "lecture_sessions",
+      "lecture_timetable.session_id",
+      "lecture_sessions.ls_id "
+    )
+    .leftJoin(
+      "timetable_groups",
+      "lecture_timetable.timetable_group_id",
+      "timetable_groups.tt_gr_id "
+    )
+    .join("study_time", "timetable_groups.study_time_id", "study_time.st_id")
+    .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
+    .join("schools", "timetable_groups.school_id", "schools.school_id")
     .where({
       day_id: day,
-      // lecturer_id,
     })
+    // .where("day_id", "=", req.body.day)
+
     //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
-    //.join("lecturers", "timetable.lecturer_id", "=", "lecturers.lecturer_id")
-    .join("staff", "timetable.lecturer_id", "=", "staff.staff_id")
-    .join("schools", "timetable.school_id", "=", "schools.school_id")
-    // .leftJoin("users", "timetable.c_unit_id", "=", "users.for_wc_cu")
-    // .leftJoin("lectures", "timetable.tt_id", "lectures.l_tt_id")
+
+    .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
+
     .leftJoin("lectures", function () {
-      this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+      this.on("lecture_timetable.tt_id", "=", "lectures.l_tt_id")
         .andOn(
           "lectures.l_year",
           "=",
@@ -2050,9 +2284,77 @@ app.post("/lecturerCourseunits/", (req, res) => {
           parseInt(req.body.selected ? req.body.selected : d.getDate())
         );
     })
-    .orderBy("start_time")
+    .select(
+      "lecture_timetable.tt_id",
+      "lecture_timetable.day_id",
+      "lecture_sessions.start_time",
+      "lecture_sessions.end_time",
+      "rooms.room_name",
+      "lecture_timetable.c_unit_id",
+      "lecture_timetable.course_unit_name",
+      "lecture_timetable.lecturer_id",
+      "schools.alias",
+      "schools.school_id",
+      "study_time.study_time_name",
+      "staff.*",
+      "lectures.*"
+    )
+    // .where("lectures.date", "=", req.body.date)
+    // .andWhere("stu_selected_course_units.stu_id", "=", req.body.stu_no)
+    // .orderBy("start_time")
+    .then((lec) => {
+      const data = lec.map((obj) => {
+        const newObj = Object.assign({}, obj, {
+          school: obj.alias,
+          study_time: obj.study_time_name,
+          room: obj.room_name,
+        });
 
-    .then((data) => {
+        delete newObj.alias;
+        delete newObj.study_time_name;
+        return newObj;
+      });
+
+      // console.log("Receiveing this", data);
+
+      // database
+      //   .select("*")
+      //   .from("timetable")
+      //   .where({
+      //     day_id: day,
+      //     // lecturer_id,
+      //   })
+      //   //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
+      //   //.join("lecturers", "timetable.lecturer_id", "=", "lecturers.lecturer_id")
+      //   .join("staff", "timetable.lecturer_id", "=", "staff.staff_id")
+      //   .join("schools", "timetable.school_id", "=", "schools.school_id")
+      //   // .leftJoin("users", "timetable.c_unit_id", "=", "users.for_wc_cu")
+      //   // .leftJoin("lectures", "timetable.tt_id", "lectures.l_tt_id")
+      //   .leftJoin("lectures", function () {
+      //     this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+      //       .andOn(
+      //         "lectures.l_year",
+      //         "=",
+      //         parseInt(
+      //           req.body.selectedYear ? req.body.selectedYear : d.getFullYear()
+      //         )
+      //       )
+      //       .andOn(
+      //         "lectures.l_month",
+      //         "=",
+      //         parseInt(
+      //           req.body.selectedMonth ? req.body.selectedMonth : d.getMonth() + 1
+      //         )
+      //       )
+      //       .andOn(
+      //         "lectures.l_date",
+      //         "=",
+      //         parseInt(req.body.selected ? req.body.selected : d.getDate())
+      //       );
+      //   })
+      //   .orderBy("start_time")
+
+      //   .then((data) => {
       // console.log("lectures of teacher", data);
       database
         .select("*")
@@ -2450,6 +2752,7 @@ app.get("/studentsTotalBySchool/:school", (req, res) => {
     });
 });
 
+//dashboard
 app.get("/todaysLectures/:school", (req, res) => {
   const { school } = req.params;
   const d = new Date();
@@ -2470,6 +2773,7 @@ app.get("/todaysLectures/:school", (req, res) => {
     });
 });
 
+//dashboard
 app.get("/numOftodaysLectures/:school", (req, res) => {
   const { school } = req.params;
   const d = new Date();
@@ -3806,17 +4110,63 @@ app.get("/lecture/:lecture_id", (req, res) => {
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 
   database
-    .select("*")
-    .from("timetable")
+    .from("lecture_timetable")
+    .join(
+      "lecture_sessions",
+      "lecture_timetable.session_id",
+      "lecture_sessions.ls_id "
+    )
+    .leftJoin(
+      "timetable_groups",
+      "lecture_timetable.timetable_group_id",
+      "timetable_groups.tt_gr_id "
+    )
+    .join("study_time", "timetable_groups.study_time_id", "study_time.st_id")
+    .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
+    .join("schools", "timetable_groups.school_id", "schools.school_id")
 
-    // .join("student_signin", "students.stu_id", "=", "student_signin.stu_id")
+    .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
+    .select(
+      "lecture_timetable.tt_id",
+      "lecture_timetable.day_id",
+      "lecture_sessions.start_time",
+      "lecture_sessions.end_time",
+      "rooms.room_name",
+      "lecture_timetable.c_unit_id",
+      "lecture_timetable.course_unit_name",
+      "lecture_timetable.lecturer_id",
+      "schools.alias",
+      "schools.school_id",
+      "study_time.study_time_name",
+      "staff.*"
+    )
+    .where("lecture_timetable.tt_id", "=", lecture_id)
+    .then((lec) => {
+      const lectures = lec.map((obj) => {
+        const newObj = Object.assign({}, obj, {
+          school: obj.alias,
+          study_time: obj.study_time_name,
+        });
 
-    .where("timetable.tt_id", "=", lecture_id)
-    // .andWhere("student_signin.signin_date", "=", date)
-
-    .then((data) => {
-      res.send(data);
+        delete newObj.alias;
+        delete newObj.study_time_name;
+        return newObj;
+      });
+      res.send(lectures);
     });
+
+  // database
+  //   .select("*")
+  //   .from("timetable")
+
+  //   // .join("student_signin", "students.stu_id", "=", "student_signin.stu_id")
+
+  //   .where("timetable.tt_id", "=", lecture_id)
+  //   // .andWhere("student_signin.signin_date", "=", date)
+
+  //   .then((data) => {
+  //     res.send(data);
+  //   });
 });
 
 /**
@@ -4390,28 +4740,77 @@ app.post("/getLectureData/", (req, res) => {
   //console.log(req.body);
   const d = new Date(selectedDate);
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
-  // console.log("Loooking for date", date);
+  // console.log("Loooking for date", date)
 
   database
-    .select("*")
-    .from("timetable")
+    .from("lecture_timetable")
+    .join(
+      "lecture_sessions",
+      "lecture_timetable.session_id",
+      "lecture_sessions.ls_id "
+    )
+    .leftJoin(
+      "timetable_groups",
+      "lecture_timetable.timetable_group_id",
+      "timetable_groups.tt_gr_id "
+    )
+    .join("study_time", "timetable_groups.study_time_id", "study_time.st_id")
+    .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
+    .join("schools", "timetable_groups.school_id", "schools.school_id")
 
-    .andWhere("timetable.tt_id", "=", tt_id)
+    .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
+
+    // .where("lecture_timetable.tt_id", "=", lecture_id)
+    // .then((lec) => {
+    //   const lectures = lec.map((obj) => {
+    //     const newObj = Object.assign({}, obj, {
+    //       school: obj.alias,
+    //       study_time: obj.study_time_name,
+    //     });
+
+    //     delete newObj.alias;
+    //     delete newObj.study_time_name;
+    //     return newObj;
+    //   });
+    //   res.send(lectures);
+    // });
+
+    // database
+    //   .select("*")
+    //   .from("timetable")
+
+    .andWhere("lecture_timetable.tt_id", "=", tt_id)
     // .join(
     //   "stu_selected_course_units",
     //   "timetable.c_unit_id",
     //   "=",
     //   "stu_selected_course_units.course_id"
     // )
-    .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
-    .join("schools", "timetable.school_id", "=", "schools.school_id")
+    // .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
+    // .join("schools", "lecture_timetable.school_id", "=", "schools.school_id")
 
     .leftJoin("lectures", function () {
-      this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+      this.on("lecture_timetable.tt_id", "=", "lectures.l_tt_id")
         .andOn("lectures.course_unit_id", "=", database.raw("?", [course_id]))
         .andOn("lectures.l_day_id", "=", database.raw("?", [day_id]))
         .andOn("lectures.date", "=", database.raw("?", [date]));
     })
+
+    .select(
+      "lecture_timetable.tt_id",
+      "lecture_timetable.day_id",
+      "lecture_sessions.start_time",
+      "lecture_sessions.end_time",
+      "rooms.room_name",
+      "lecture_timetable.c_unit_id",
+      "lecture_timetable.course_unit_name",
+      "lecture_timetable.lecturer_id",
+      "schools.alias",
+      "schools.school_id",
+      "study_time.study_time_name",
+      "staff.*",
+      "lectures.*"
+    )
     // .leftJoin("lectures", "timetable.tt_id", "=", "lectures.l_tt_id")
     // .where({
     //   course_unit_id: course_id,
@@ -4657,21 +5056,50 @@ app.get("/getEnrolledStudents/:course_id", (req, res) => {
         })
         .then((data2) => {
           let arr = [];
-          data.map((student) => {
-            if (data2.length > 0) {
-              data2.map((cr) => {
-                if (student.stu_id == cr.class_rep_id) {
-                  arr.push({ ...student, is_class_rep: 1 });
-                } else {
-                  arr.push(student);
-                }
-              });
-            } else {
-              arr = data2;
+
+          if (data2.length == 0) {
+            res.send(data);
+          } else {
+            // data.map((student) => {
+            //   data2.map((cr) => {
+            //     if (student.stu_id == cr.class_rep_id) {
+            //       arr.push({ ...student, is_class_rep: 1 });
+            //     } else {
+            //       arr.push(student);
+            //     }
+            //   });
+            // });
+
+            // let result = data
+            //   .filter(
+            //     (student) =>
+            //       !data2.some((cr) => cr.class_rep_id === student.stu_id)
+            //   )
+            //   .concat(data2);
+            // res.send(result);
+
+            for (let i = 0; i < data2.length; i++) {
+              let foundIndex = data.findIndex(
+                (student) => student.stu_id === data2[i].class_rep_id
+              );
+              if (foundIndex !== -1) {
+                // data[foundIndex] = { ...data[foundIndex], ...data2[i] };
+                data[foundIndex] = { ...data[foundIndex], is_class_rep: 1 };
+              } else {
+                data.push(data2[i]);
+              }
             }
-          });
-          res.send(arr);
+            res.send(data);
+          }
+        })
+        .catch((err) => {
+          console.log("Error in getting enrolled students", err);
         });
+
+      // res.send(data);
+    })
+    .catch((err) => {
+      console.log("Error in getting enrolled students", err);
     });
 });
 
@@ -4688,7 +5116,7 @@ app.post("/api/login", (req, res) => {
     .then((user) => {
       // console.log(user);
       if (!user[0]) {
-        return res.status(400).json({ error: "Invalid email or password " });
+        res.status(400).json({ error: "Invalid email or password" });
       } else {
         if (user[0].role == "Student") {
           database
@@ -4724,7 +5152,7 @@ app.post("/api/login", (req, res) => {
                   this.where("stu_id", "=", user[0].stu_no);
                 })
                 .then((courseUnitsData) => {
-                  return res.send({
+                  res.send({
                     ...user[0],
                     otherData: studentData,
                     imageUrl: `http://${baseIp}:${port}/assets/${user[0].user_image}`,
@@ -4733,44 +5161,37 @@ app.post("/api/login", (req, res) => {
                 });
             });
         } else {
-          return res.send({
+          res.send({
             ...user[0],
             imageUrl: `http://${baseIp}:${port}/assets/${user[0].user_image}`,
           });
         }
       }
-      // const token = jwt.sign(
-      //   {
-      //     id: user[0].id,
-      //     email: user[0].email,
-      //     name: user[0].username,
-      //     address: user[0].address,
-      //     fullName: user[0].fullname,
-      //     image: user[0].image,
-      //   },
-      //   secret
-      // );
     })
     .catch((err) => {
-      return res.status(400).json({ error: "Invalid email or password" });
+      res.status(400).json({ error: "Invalid email or password" });
     });
 });
 
 app.post("/api/removeToken", (req, res) => {
-  const { username, password, token } = req.body;
+  const { user_id, username, password, token } = req.body;
   // console.log("user info", req.body);
   database
     .select("*")
     .from("users")
     .where({
-      username: username,
-      password: password,
+      id: user_id,
     })
     .update({
       token: null,
     })
     .then((data2) => {
-      // console.log(`removed ${username}'s push token`);
+      console.log(`removed ${user_id}'s push token`);
+      res.end();
+    })
+    .catch((err) => {
+      console.log("Error removing token", err);
+      res.end();
     });
 });
 
@@ -4916,6 +5337,75 @@ app.post("/api/addExamTimetable", (req, res) => {
           });
       }
     });
+});
+
+app.post("/api/addClassTimetable", async (req, res) => {
+  const { headers, timetable } = req.body;
+  const d = new Date();
+  const date = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+
+  const existingTimetableGroup = await database
+    .select("*")
+    .where({
+      school_id: headers.school.value,
+      study_time_id: headers.studyTime.value,
+      campus: headers.campus.value,
+      sem: headers.sem.value,
+      year: headers.year.value,
+    })
+    .from("timetable_groups");
+
+  let timetableGroupId;
+  if (existingTimetableGroup.length === 0) {
+    const [timetableGroup] = await database("timetable_groups").insert({
+      school_id: headers.school.value,
+      study_time_id: headers.studyTime.value,
+      campus: headers.campus.value,
+      sem: headers.sem.value,
+      year: headers.year.value,
+    });
+    timetableGroupId = timetableGroup;
+  } else {
+    timetableGroupId = existingTimetableGroup[0].tt_gr_id;
+  }
+
+  // console.log("timetableGroup", timetableGroupId);
+
+  const fieldsToInsert = timetable.map((field) => ({
+    timetable_group_id: timetableGroupId,
+    day_id: field.day.value,
+    session_id: field.session.value,
+    lecturer_id: field.lecturer.value,
+    room_id: field.room.value,
+    c_unit_id: field.courseUnit.value.course_code,
+    course_unit_name: field.courseUnit.value.course_name,
+  }));
+
+  const insertPromises = fieldsToInsert.map(async (field) => {
+    const result = await database
+      .raw(
+        `SELECT * FROM lecture_timetable WHERE timetable_group_id = ${field.timetable_group_id} AND day_id = ${field.day_id} AND session_id = ${field.session_id} AND lecturer_id= '${field.lecturer_id}' AND room_id = ${field.room_id} AND c_unit_id = '${field.c_unit_id}' AND course_unit_name = '${field.course_unit_name}'`
+      )
+      .then((result) => {
+        if (!result[0].length) {
+          return database("lecture_timetable").insert(field);
+        }
+      });
+  });
+
+  try {
+    await Promise.all(insertPromises);
+    res.status(200).send({
+      success: true,
+      message: "Successfully uploaded the timetable",
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({
+      success: false,
+      message: "Failed to upload the timetable",
+    });
+  }
 });
 
 app.post("/api/examTT", (req, res) => {
@@ -5904,34 +6394,70 @@ app.post("/lectureHasEnded", (req, res) => {
           });
           // io.in(`${socket.id}`).emit("endedLectureDetails", );
 
-          database
-            .select("*")
-            .from("timetable")
-            // .join("lectures", "timetable.tt_id", "=", "lectures.tt_id")
-            .where("day_id", "=", data.day_id)
-            .andWhere("timetable.tt_id", "=", data.tt_id)
-            // .andWhere("timetable.study_time", "=", req.body.study_time)
-            // .where("day_id", "=", req.body.day)
+          // database
+          //   .select("*")
+          //   .from("timetable")
 
-            //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
+          database
+            .from("lecture_timetable")
+            .where("day_id", "=", data.day_id)
+            .andWhere("lecture_timetable.tt_id", "=", data.tt_id)
+            .join(
+              "lecture_sessions",
+              "lecture_timetable.session_id",
+              "lecture_sessions.ls_id "
+            )
+            .leftJoin(
+              "timetable_groups",
+              "lecture_timetable.timetable_group_id",
+              "timetable_groups.tt_gr_id "
+            )
+            .join(
+              "study_time",
+              "timetable_groups.study_time_id",
+              "study_time.st_id"
+            )
+            .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
+            .join("schools", "timetable_groups.school_id", "schools.school_id")
+
+            .leftJoin(
+              "staff",
+              "lecture_timetable.lecturer_id",
+              "=",
+              "staff.staff_id"
+            )
             .join(
               "stu_selected_course_units",
-              "timetable.c_unit_id",
+              "lecture_timetable.c_unit_id",
               "=",
               "stu_selected_course_units.course_id"
             )
-            .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
-            .join("schools", "timetable.school_id", "=", "schools.school_id")
             .leftJoin("lectures", function () {
-              this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+              this.on("lecture_timetable.tt_id", "=", "lectures.l_tt_id")
                 .andOn("lectures.l_year", "=", parseInt(d.getFullYear()))
                 .andOn("lectures.l_month", "=", parseInt(d.getMonth() + 1))
                 .andOn("lectures.l_date", "=", parseInt(d.getDate()));
             })
             // .where("lectures.date", "=", req.body.date)
             .andWhere("stu_selected_course_units.stu_id", "=", data.stdno)
-            .andWhere("timetable.c_unit_id", "=", data.lecture_id)
-            .orderBy("start_time")
+            .andWhere("lecture_timetable.c_unit_id", "=", data.lecture_id)
+            .select(
+              "lecture_timetable.tt_id",
+              "lecture_timetable.day_id",
+              "lecture_sessions.start_time",
+              "lecture_sessions.end_time",
+              "rooms.room_name",
+              "lecture_timetable.c_unit_id",
+              "lecture_timetable.course_unit_name",
+              "lecture_timetable.lecturer_id",
+              "schools.alias",
+              "schools.school_id",
+              "study_time.study_time_name",
+              "staff.*",
+              "stu_selected_course_units.*",
+              "lectures.*"
+            )
+            // .orderBy("start_time")
             .then((myData) => {
               // newArr.push(data);
               // console.log("another response herer", data);
@@ -6002,6 +6528,7 @@ app.post("/lectureHasEnded", (req, res) => {
                     });
 
                     //res.send(data);
+                    res.end();
                   });
               });
             });
@@ -6244,34 +6771,94 @@ io.on("connection", (socket) => {
             });
           });
 
-        database
-          .select("*")
-          .from("timetable")
-          // .join("lectures", "timetable.tt_id", "=", "lectures.tt_id")
-          .where("day_id", "=", msg.day_id)
-          .andWhere("timetable.tt_id", "=", msg.timetable_id)
-          // .andWhere("timetable.study_time", "=", req.body.study_time)
-          // .where("day_id", "=", req.body.day)
+        // database
+        //   .select("*")
+        //   .from("timetable")
+        //   // .join("lectures", "timetable.tt_id", "=", "lectures.tt_id")
+        //   .where("day_id", "=", msg.day_id)
+        //   .andWhere("timetable.tt_id", "=", msg.timetable_id)
+        //   // .andWhere("timetable.study_time", "=", req.body.study_time)
+        //   // .where("day_id", "=", req.body.day)
 
-          //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
+        //   //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
+        //   .join(
+        //     "stu_selected_course_units",
+        //     "timetable.c_unit_id",
+        //     "=",
+        //     "stu_selected_course_units.course_id"
+        //   )
+        //   .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
+        //   .join("schools", "timetable.school_id", "=", "schools.school_id")
+        //   .leftJoin("lectures", function () {
+        //     this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+        //       .andOn("lectures.l_year", "=", parseInt(d.getFullYear()))
+        //       .andOn("lectures.l_month", "=", parseInt(d.getMonth() + 1))
+        //       .andOn("lectures.l_date", "=", parseInt(d.getDate()));
+        //   })
+        //   // .where("lectures.date", "=", req.body.date)
+        //   .andWhere("stu_selected_course_units.stu_id", "=", msg.stdno)
+        //   .andWhere("timetable.c_unit_id", "=", msg.course_unit_id)
+        //   .orderBy("start_time")
+
+        database
+          .from("lecture_timetable")
+          .where("day_id", "=", msg.day_id)
+          .andWhere("lecture_timetable.tt_id", "=", msg.timetable_id)
+          .join(
+            "lecture_sessions",
+            "lecture_timetable.session_id",
+            "lecture_sessions.ls_id "
+          )
+          .leftJoin(
+            "timetable_groups",
+            "lecture_timetable.timetable_group_id",
+            "timetable_groups.tt_gr_id "
+          )
+          .join(
+            "study_time",
+            "timetable_groups.study_time_id",
+            "study_time.st_id"
+          )
+          .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
+          .join("schools", "timetable_groups.school_id", "schools.school_id")
+
+          .leftJoin(
+            "staff",
+            "lecture_timetable.lecturer_id",
+            "=",
+            "staff.staff_id"
+          )
           .join(
             "stu_selected_course_units",
-            "timetable.c_unit_id",
+            "lecture_timetable.c_unit_id",
             "=",
             "stu_selected_course_units.course_id"
           )
-          .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
-          .join("schools", "timetable.school_id", "=", "schools.school_id")
           .leftJoin("lectures", function () {
-            this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+            this.on("lecture_timetable.tt_id", "=", "lectures.l_tt_id")
               .andOn("lectures.l_year", "=", parseInt(d.getFullYear()))
               .andOn("lectures.l_month", "=", parseInt(d.getMonth() + 1))
               .andOn("lectures.l_date", "=", parseInt(d.getDate()));
           })
           // .where("lectures.date", "=", req.body.date)
           .andWhere("stu_selected_course_units.stu_id", "=", msg.stdno)
-          .andWhere("timetable.c_unit_id", "=", msg.course_unit_id)
-          .orderBy("start_time")
+          .andWhere("lecture_timetable.c_unit_id", "=", msg.course_unit_id)
+          .select(
+            "lecture_timetable.tt_id",
+            "lecture_timetable.day_id",
+            "lecture_sessions.start_time",
+            "lecture_sessions.end_time",
+            "rooms.room_name",
+            "lecture_timetable.c_unit_id",
+            "lecture_timetable.course_unit_name",
+            "lecture_timetable.lecturer_id",
+            "schools.alias",
+            "schools.school_id",
+            "study_time.study_time_name",
+            "staff.*",
+            "stu_selected_course_units.*",
+            "lectures.*"
+          )
           .then((myData) => {
             // newArr.push(data);
             // console.log("another response herer", data);
@@ -6730,7 +7317,7 @@ io.on("connection", (socket) => {
           //     );
           //   });
 
-          console.log("Memebers in the room 89787787", membersInRoom);
+          //console.log("Memebers in the room 89787787", membersInRoom);
 
           // io.in(`${data.course_id}`).emit("updatedMembersList", membersInRoom);
 
@@ -6992,11 +7579,57 @@ io.on("connection", (socket) => {
     // console.log("Used date", date);
     let room;
 
+    // database
+    //   .select("*")
+    //   .from("timetable")
+    //   .where("timetable.tt_id", "=", data.timetable_id)
+    //   .then((data2) => {
+
     database
-      .select("*")
-      .from("timetable")
-      .where("timetable.tt_id", "=", data.timetable_id)
-      .then((data2) => {
+      .from("lecture_timetable")
+      .join(
+        "lecture_sessions",
+        "lecture_timetable.session_id",
+        "lecture_sessions.ls_id "
+      )
+      .leftJoin(
+        "timetable_groups",
+        "lecture_timetable.timetable_group_id",
+        "timetable_groups.tt_gr_id "
+      )
+      .join("study_time", "timetable_groups.study_time_id", "study_time.st_id")
+      .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
+      .join("schools", "timetable_groups.school_id", "schools.school_id")
+
+      .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
+      .select(
+        "lecture_timetable.tt_id",
+        "lecture_timetable.day_id",
+        "lecture_sessions.start_time",
+        "lecture_sessions.end_time",
+        "rooms.room_name",
+        "lecture_timetable.c_unit_id",
+        "lecture_timetable.course_unit_name",
+        "lecture_timetable.lecturer_id",
+        "schools.alias",
+        "schools.school_id",
+        "study_time.study_time_name",
+        "staff.*"
+      )
+      .where("lecture_timetable.tt_id", "=", data.timetable_id)
+      .then((lec) => {
+        const data2 = lec.map((obj) => {
+          const newObj = Object.assign({}, obj, {
+            school: obj.alias,
+            study_time: obj.study_time_name,
+          });
+
+          delete newObj.alias;
+          delete newObj.study_time_name;
+          return newObj;
+        });
+        // res.send(lectures);
+        // });
         // res.send(data);
 
         const roomToLeave = [...socket.rooms][1];
@@ -7256,34 +7889,97 @@ io.on("connection", (socket) => {
             checkMembers("/", room);
 
             //prepare data for notifications
-            database
-              .select("*")
-              .from("timetable")
-              // .join("lectures", "timetable.tt_id", "=", "lectures.tt_id")
-              .where("day_id", "=", data.day_id)
-              .andWhere("timetable.tt_id", "=", data.timetable_id)
-              // .andWhere("timetable.study_time", "=", req.body.study_time)
-              // .where("day_id", "=", req.body.day)
+            // database
+            //   .select("*")
+            //   .from("timetable")
+            //   // .join("lectures", "timetable.tt_id", "=", "lectures.tt_id")
+            //   .where("day_id", "=", data.day_id)
+            //   .andWhere("timetable.tt_id", "=", data.timetable_id)
+            //   // .andWhere("timetable.study_time", "=", req.body.study_time)
+            //   // .where("day_id", "=", req.body.day)
 
-              //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
+            //   //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
+            //   .join(
+            //     "stu_selected_course_units",
+            //     "timetable.c_unit_id",
+            //     "=",
+            //     "stu_selected_course_units.course_id"
+            //   )
+            //   .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
+            //   .join("schools", "timetable.school_id", "=", "schools.school_id")
+            //   .leftJoin("lectures", function () {
+            //     this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+            //       .andOn("lectures.l_year", "=", parseInt(d.getFullYear()))
+            //       .andOn("lectures.l_month", "=", parseInt(d.getMonth() + 1))
+            //       .andOn("lectures.l_date", "=", parseInt(d.getDate()));
+            //   })
+            //   // .where("lectures.date", "=", req.body.date)
+            //   // .andWhere("stu_selected_course_units.stu_id", "=", data.stu_no)
+            //   .andWhere("timetable.c_unit_id", "=", data.lecture_id)
+            //   .orderBy("start_time")
+
+            database
+              .from("lecture_timetable")
+              .where("day_id", "=", data.day_id)
+              .andWhere("lecture_timetable.tt_id", "=", data.timetable_id)
+              .join(
+                "lecture_sessions",
+                "lecture_timetable.session_id",
+                "lecture_sessions.ls_id "
+              )
+              .leftJoin(
+                "timetable_groups",
+                "lecture_timetable.timetable_group_id",
+                "timetable_groups.tt_gr_id "
+              )
+              .join(
+                "study_time",
+                "timetable_groups.study_time_id",
+                "study_time.st_id"
+              )
+              .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
+              .join(
+                "schools",
+                "timetable_groups.school_id",
+                "schools.school_id"
+              )
+
+              .leftJoin(
+                "staff",
+                "lecture_timetable.lecturer_id",
+                "=",
+                "staff.staff_id"
+              )
               .join(
                 "stu_selected_course_units",
-                "timetable.c_unit_id",
+                "lecture_timetable.c_unit_id",
                 "=",
                 "stu_selected_course_units.course_id"
               )
-              .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
-              .join("schools", "timetable.school_id", "=", "schools.school_id")
               .leftJoin("lectures", function () {
-                this.on("timetable.tt_id", "=", "lectures.l_tt_id")
+                this.on("lecture_timetable.tt_id", "=", "lectures.l_tt_id")
                   .andOn("lectures.l_year", "=", parseInt(d.getFullYear()))
                   .andOn("lectures.l_month", "=", parseInt(d.getMonth() + 1))
                   .andOn("lectures.l_date", "=", parseInt(d.getDate()));
               })
               // .where("lectures.date", "=", req.body.date)
-              // .andWhere("stu_selected_course_units.stu_id", "=", data.stu_no)
-              .andWhere("timetable.c_unit_id", "=", data.lecture_id)
-              .orderBy("start_time")
+              .andWhere("lecture_timetable.c_unit_id", "=", data.lecture_id)
+              .select(
+                "lecture_timetable.tt_id",
+                "lecture_timetable.day_id",
+                "lecture_sessions.start_time",
+                "lecture_sessions.end_time",
+                "rooms.room_name",
+                "lecture_timetable.c_unit_id",
+                "lecture_timetable.course_unit_name",
+                "lecture_timetable.lecturer_id",
+                "schools.alias",
+                "schools.school_id",
+                "study_time.study_time_name",
+                "staff.*",
+                "stu_selected_course_units.*",
+                "lectures.*"
+              )
               .then((myData) => {
                 // newArr.push(data);
                 // console.log("another response herer", data);
