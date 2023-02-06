@@ -921,7 +921,7 @@ Date.prototype.toMysqlFormat = function () {
   );
 };
 
-router.post("/api/addRoom", (req, res) => {
+router.post("/addRoom", (req, res) => {
   const { roomName } = req.body;
   // console.log("Data", req.body);
   const d = new Date();

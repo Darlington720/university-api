@@ -9,6 +9,7 @@ const XLSX = require("xlsx");
 const gate = require("./routes/gate");
 const auth = require("./routes/auth");
 const student = require("./routes/student");
+const dashboard = require("./routes/dashboard");
 const lecturer = require("./routes/lecturer");
 const admin = require("./routes/admin");
 const voting = require("./routes/voting");
@@ -50,6 +51,7 @@ app.use("/api/voting", voting);
 app.use("/api/lecture", lectures);
 app.use("/api/upload", uploadRouter);
 app.use("/api/timetable", timetable);
+app.use("/api/dashboard", dashboard);
 app.use("/", exams);
 // console.log("my name is", new Date("2022-12-04T23:31:53.000Z").getDate());
 
@@ -111,7 +113,7 @@ const data = [
   "staff_signin",
   "non_teaching_staff",
   "stu_signin",
-  "constraints",
+  // "constraints",
   "staff",
   "timetable",
   "lectures",
@@ -1249,3 +1251,37 @@ async function getLectureDetails(data, date) {
 
   return [{ ...finalArr[0] }];
 }
+
+const getStudentGateStatus2de = async (stuNo) => {
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  const data3 = await database
+    .select("*")
+    .from("students_biodata")
+    .join("stu_signin", "students_biodata.stdno", "=", "stu_signin.stu_id")
+    .where("students_biodata.stdno", "=", stuNo)
+    .andWhere("stu_signin.signin_date", "=", date);
+
+  let todaysStatus;
+
+  if (data3.length > 0) {
+    if (data3[data3.length - 1].signout_time !== null) {
+      todaysStatus = "not new";
+    } else {
+      todaysStatus = true;
+    }
+  } else {
+    const data2 = await database.select("*").from("students_biodata").where({
+      stdno: stuNo,
+    });
+
+    if (data2[0]) {
+      todaysStatus = false;
+    } else {
+      todaysStatus = "invalid";
+    }
+  }
+
+  return todaysStatus;
+};
