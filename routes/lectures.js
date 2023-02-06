@@ -368,55 +368,59 @@ router.get("/getEnrolledStudents/:course_id", (req, res) => {
     .where({
       course_id,
     })
-    .then((data) => {
+    .then(async (data) => {
       //console.log("Enrolled students here", data);
 
-      database("class_reps")
-        .select("*")
-        .where({
+      const fetch_1 = async () => {
+        const classReps = await database("class_reps").select("*").where({
           for_wc_cu: course_id,
-        })
-        .then((data2) => {
-          let arr = [];
-
-          if (data2.length == 0) {
-            res.send(data);
-          } else {
-            // data.map((student) => {
-            //   data2.map((cr) => {
-            //     if (student.stu_id == cr.class_rep_id) {
-            //       arr.push({ ...student, is_class_rep: 1 });
-            //     } else {
-            //       arr.push(student);
-            //     }
-            //   });
-            // });
-
-            // let result = data
-            //   .filter(
-            //     (student) =>
-            //       !data2.some((cr) => cr.class_rep_id === student.stu_id)
-            //   )
-            //   .concat(data2);
-            // res.send(result);
-
-            for (let i = 0; i < data2.length; i++) {
-              let foundIndex = data.findIndex(
-                (student) => student.stu_id === data2[i].class_rep_id
-              );
-              if (foundIndex !== -1) {
-                // data[foundIndex] = { ...data[foundIndex], ...data2[i] };
-                data[foundIndex] = { ...data[foundIndex], is_class_rep: 1 };
-              } else {
-                data.push(data2[i]);
-              }
-            }
-            res.send(data);
-          }
-        })
-        .catch((err) => {
-          console.log("Error in getting enrolled students", err);
         });
+
+        const result = data.map((enrolledStu) => {
+          const itemA = classReps.find(
+            (cr) => enrolledStu.stu_id === cr.class_rep_id
+          );
+          if (itemA) {
+            return { ...enrolledStu, is_class_rep: 1 };
+          }
+          return enrolledStu;
+        });
+
+        return result;
+      };
+
+      const result = await fetch_1();
+
+      res.send(result);
+
+      // database("class_reps")
+      //   .select("*")
+      //   .where({
+      //     for_wc_cu: course_id,
+      //   })
+      //   .then((data2) => {
+      //     let arr = [];
+
+      //     if (data2.length == 0) {
+      //       res.send(data);
+      //     } else {
+      //       for (let i = 0; i < data2.length; i++) {
+      //         let foundIndex = data.findIndex(
+      //           (student) => student.stu_id === data2[i].class_rep_id
+      //         );
+      //         if (foundIndex !== -1) {
+      //           // data[foundIndex] = { ...data[foundIndex], ...data2[i] };
+      //           data[foundIndex] = { ...data[foundIndex], is_class_rep: 1 };
+      //         } else {
+      //           data.push(data2[i]);
+      //         }
+      //       }
+      //       res.send(data);
+      //     }
+      //   })
+      //   .catch((err) => {
+      //     console.log("Error in getting enrolled students", err);
+      //   });
 
       // res.send(data);
     })
