@@ -560,7 +560,7 @@ router.post("/staffReg", (req, res) => {
                 }
                 // res.send(err)
               );
-            res.send("Received the data");
+            // res.send("Received the data");
             // database("students_signout_book")
             //   .insert({
             //     stu_id: stu_id,
@@ -885,34 +885,53 @@ router.get("/studentGateStatus/:studentNo", async (req, res) => {
   const { studentNo } = req.params;
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
-
-  const data3 = await database
+  let todaysStatus;
+  const student = await database
     .select("*")
     .from("students_biodata")
-    .join("stu_signin", "students_biodata.stdno", "=", "stu_signin.stu_id")
-    .where("students_biodata.stdno", "=", studentNo)
-    .andWhere("stu_signin.signin_date", "=", date);
+    .where({
+      stdno: studentNo,
+    })
+    .first();
 
-  let todaysStatus;
+  if (student) {
+    const gateInfo = await database
+      .select("*")
+      .from("students_biodata")
+      .join("stu_signin", "students_biodata.stdno", "=", "stu_signin.stu_id")
+      .where("students_biodata.stdno", "=", studentNo)
+      .andWhere("stu_signin.signin_date", "=", date);
 
-  if (data3.length > 0) {
-    if (data3[data3.length - 1].signout_time !== null) {
-      //not new
-      todaysStatus = false;
-    } else {
-      todaysStatus = true;
+    if (gateInfo.length > 0) {
+      if (gateInfo[gateInfo.length - 1].signout_time !== null) {
+        //not new
+        todaysStatus = false;
+      } else {
+        todaysStatus = true;
+      }
     }
   } else {
-    const data2 = await database.select("*").from("students_biodata").where({
-      stdno: studentNo,
-    });
-
-    if (data2[0]) {
-      todaysStatus = false;
-    } else {
-      todaysStatus = "invalid";
-    }
+    todaysStatus = "invalid";
   }
+
+  // if (data3.length > 0) {
+  //   if (data3[data3.length - 1].signout_time !== null) {
+  //     //not new
+  //     todaysStatus = false;
+  //   } else {
+  //     todaysStatus = true;
+  //   }
+  // } else {
+  //   const data2 = await database.select("*").from("students_biodata").where({
+  //     stdno: studentNo,
+  //   });
+
+  //   if (data2[0]) {
+  //     todaysStatus = false;
+  //   } else {
+  //     todaysStatus = "invalid";
+  //   }
+  // }
 
   // return todaysStatus;
   if (todaysStatus === "invalid") {
@@ -926,6 +945,7 @@ router.get("/studentGateStatus/:studentNo", async (req, res) => {
       result: {
         status: todaysStatus,
         stu_no: studentNo,
+        name: student.name,
       },
     });
   }

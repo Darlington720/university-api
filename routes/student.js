@@ -192,7 +192,7 @@ router.post("/myCourseUnitsToday/", (req, res) => {
   // console.log(lectures.split(","));
 
   // console.log("is Array result", Array.isArray(req.body));
-
+  //console.log("the body", req.body);
   // console.log("from the client ", req.body.day);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -219,58 +219,6 @@ router.post("/myCourseUnitsToday/", (req, res) => {
   // console.log("lecture ", parseInt(e));
   // newArr.push(e);
 
-  // database
-  //   .select("*")
-  //   .from("timetable")
-  //   // .join("lectures", "timetable.tt_id", "=", "lectures.tt_id")
-  //   .where("day_id", "=", req.body.day)
-  //   .andWhere("timetable.school", "=", req.body.school)
-  //   .andWhere("timetable.study_time", "=", req.body.study_time)
-  //   // .where("day_id", "=", req.body.day)
-
-  //   //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
-  //   .join(
-  //     "stu_selected_course_units",
-  //     "timetable.c_unit_id",
-  //     "=",
-  //     "stu_selected_course_units.course_id"
-  //   )
-  //   .leftJoin("staff", "timetable.lecturer_id", "=", "staff.staff_id")
-  //   .join("schools", "timetable.school_id", "=", "schools.school_id")
-  //   // .leftJoin("users", "timetable.c_unit_id", "=", "users.for_wc_cu")
-  //   // .leftJoin("lectures", "timetable.tt_id", "lectures.l_tt_id")
-  //   // .join("modules", function () {
-  //   //   this.on("timetable.course_unit_name", "=", "modules.course_name");
-  //   //   //.andOn("stu_selected_course_units.course", "=", "modules.course_code");
-  //   // })
-
-  //   .leftJoin("lectures", function () {
-  //     this.on("timetable.tt_id", "=", "lectures.l_tt_id")
-  //       .andOn(
-  //         "lectures.l_year",
-  //         "=",
-  //         parseInt(
-  //           req.body.selectedYear ? req.body.selectedYear : d.getFullYear()
-  //         )
-  //       )
-  //       .andOn(
-  //         "lectures.l_month",
-  //         "=",
-  //         parseInt(
-  //           req.body.selectedMonth ? req.body.selectedMonth : d.getMonth() + 1
-  //         )
-  //       )
-  //       .andOn(
-  //         "lectures.l_date",
-  //         "=",
-  //         parseInt(req.body.selected ? req.body.selected : d.getDate())
-  //       );
-  //   })
-  //   // .where("lectures.date", "=", req.body.date)
-  //   .andWhere("stu_selected_course_units.stu_id", "=", req.body.stu_no)
-  //   .orderBy("start_time")
-  //   .then((data) => {
-
   database
     .from("lecture_timetable")
     .join(
@@ -290,9 +238,6 @@ router.post("/myCourseUnitsToday/", (req, res) => {
     .where("day_id", "=", req.body.day)
     .andWhere("schools.alias", "=", req.body.school)
     .andWhere("study_time.study_time_name", "=", req.body.study_time)
-    // .where("day_id", "=", req.body.day)
-
-    //.join("course_units", "timetable.c_unit_id", "=", "course_units.course_id")
     .join(
       "stu_selected_course_units",
       "lecture_timetable.c_unit_id",
@@ -301,28 +246,7 @@ router.post("/myCourseUnitsToday/", (req, res) => {
     )
     .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
 
-    .leftJoin("lectures", function () {
-      this.on("lecture_timetable.tt_id", "=", "lectures.l_tt_id")
-        .andOn(
-          "lectures.l_year",
-          "=",
-          parseInt(
-            req.body.selectedYear ? req.body.selectedYear : d.getFullYear()
-          )
-        )
-        .andOn(
-          "lectures.l_month",
-          "=",
-          parseInt(
-            req.body.selectedMonth ? req.body.selectedMonth : d.getMonth() + 1
-          )
-        )
-        .andOn(
-          "lectures.l_date",
-          "=",
-          parseInt(req.body.selected ? req.body.selected : d.getDate())
-        );
-    })
+    .leftJoin("lectures", "lecture_timetable.tt_id", "=", "lectures.l_tt_id")
     .select(
       "lecture_timetable.tt_id",
       "lecture_timetable.day_id",
@@ -355,20 +279,9 @@ router.post("/myCourseUnitsToday/", (req, res) => {
         return newObj;
       });
       // res.send(lectures);
-
-      // newArr.push(data);
-      // console.log("another response herer", data);
+      //console.log("The lectures", data);
 
       data.map((item) => {
-        // database
-        //   .select("*")
-        //   .from("lectures")
-        //   .where({
-        //     date: req.body.date,
-        //     l_tt_id: item.tt_id,
-        //     // lecturer_id,
-        //   })
-        //   .then((data3) => {
         JSON.parse(req.body.myArray).map((reqItem, index) => {
           if (item.c_unit_id == reqItem) {
             var m2 = moment(
@@ -396,19 +309,8 @@ router.post("/myCourseUnitsToday/", (req, res) => {
                 // console.log("Lecture is supposed to have ended");
               }
             }
-
-            // newArr.push(item);
-
-            // console.log({ ...item, ...data3[0] });
-
-            // console.log(item.c_unit_id, reqItem);
-          } else {
-            // console.log("else " + item.c_unit_id, reqItem);
           }
         });
-        // })
-
-        // return true;
       });
 
       const fetch_1 = async () => {
@@ -433,15 +335,7 @@ router.post("/myCourseUnitsToday/", (req, res) => {
       };
 
       const result = await fetch_1();
-      //console.log("Check this out", result);
 
-      // console.log("results", newArr);
-
-      // if (newArr.length === 0) {
-      //   res.send(newArr);
-      // }
-
-      // console.log("length start2", newArr.length);
       const fetch_3 = result.map((lecture, index) => {
         return database
           .select("*")
@@ -456,26 +350,9 @@ router.post("/myCourseUnitsToday/", (req, res) => {
 
             // return lectureDetails;
           });
-        // .then((data) => {
-        //   // if (newArr.length === counter) {
-        //     const sortedAsc = data.sort(
-        //       (objA, objB) =>
-        //         moment(objA.start_time, "h:mmA") -
-        //         moment(objB.start_time, "h:mmA")
-        //     );
-        //     res.send(sortedAsc);
-
-        //   // }
-        // });
       });
-      // console.log("Done");
-      // console.log("length2333333", newArr.length);
 
-      // res.send(newArr);
-
-      let arr = [];
-
-      Promise.all([...fetch_3, fetch_1]).then(() => {
+      Promise.all(fetch_3).then(() => {
         const sortedAsc = lectureDetails.sort(
           (objA, objB) =>
             moment(objA.start_time, "h:mmA") - moment(objB.start_time, "h:mmA")

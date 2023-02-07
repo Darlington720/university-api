@@ -509,23 +509,23 @@ io.on("connection", (socket) => {
     const date = data.year + "-" + data.month + "-" + data.selectedDate;
     // console.log(`Adding ${data.stu_no} to class ${data.course_id}`);
 
-    database("users")
+    database("students_biodata")
       .where(function () {
-        this.where("stu_no", "=", data.stu_no);
+        this.where("stdno", "=", data.stu_no);
       })
 
       .then((data2) => {
-        const normalStudent = addUser(
-          data2[0].stu_no,
-          data2[0].userfull_name,
-          `${data.course_id}`,
-          "true",
-          data2[0].role,
-          `${data2[0].is_class_rep}`,
-          new Date().toLocaleTimeString()
-        );
+        // const normalStudent = addUser(
+        //   data2[0].stu_no,
+        //   data2[0].userfull_name,
+        //   `${data.course_id}`,
+        //   "true",
+        //   data2[0].role,
+        //   `${data2[0].is_class_rep}`,
+        //   new Date().toLocaleTimeString()
+        // );
 
-        //check in the database to see if the student is already there
+        // //check in the database to see if the student is already there
 
         database("lecture_members")
           .where(function () {
@@ -534,12 +534,12 @@ io.on("connection", (socket) => {
           // .andWhere("course_id", course_id)
           .andWhere("lecture_id", data.course_id)
           .andWhere("date", data.date)
-          .then((data10) => {
+          .then(async (data10) => {
             // console.log("Member in database", data10);
             if (data10.length == 0) {
               //user is not there, so we a adding the student
-              addMember(
-                data2[0].stu_no,
+              await addMember(
+                data2[0].stdno,
                 data.day_id,
                 date,
                 data.course_id,
@@ -548,11 +548,18 @@ io.on("connection", (socket) => {
                 new Date().toLocaleTimeString()
               );
             }
-          })
-          .then((result) => {
+
             database("lecture_members")
               .join("users", "lecture_members.member_id", "=", "users.stu_no")
-              .select("*")
+              .select(
+                "users.id",
+                "lecture_members.*",
+                "users.userfull_name",
+                "users.username",
+                "users.token",
+                "users.role",
+                "users.stu_no"
+              )
 
               .where({
                 lecture_id: data.course_id,
@@ -564,65 +571,21 @@ io.on("connection", (socket) => {
                 //res.send([...data, data8]);
                 //  console.log("updatedMembersList", data8);
                 // io.in(`${room}`).emit("updatedMembersList", data8);
-
+                //console.log("Members now", data8);
                 io.in(`${data.course_id}`).emit("updatedMembersList", data8);
-                io.in(`${data.course_id}`).emit(
-                  "addStudentToClassFromServer",
-                  data
-                );
+                io.in(`${data.course_id}`).emit("addStudentToClassFromServer", {
+                  stu_no: data.stu_no,
+                });
               });
           })
           .catch((err) => {
             console.log("Error in adding student to class", err);
           });
-        // console.log(normalStudent);
-        // console.log(
-        //   `Adding ${data.stu_no} to class ${data.course_id} in database block`
-        // );
-        // console.log(members);
-
-        const indexOfObject = members.findIndex((object) => {
-          return object.id === `${data.stu_no}`;
-        });
-        // members.splice(indexOfObject, 1);
-
-        //console.log("indexOfObject", indexOfObject);
-        if (indexOfObject !== -1) {
-          io.in(`${data.course_id}`).emit(
-            "studentAlreadyInClass",
-            "student already in class"
-          );
-
-          members[indexOfObject].status = "true";
-        } else {
-          //student not in the list
-          members.push(normalStudent);
-          console.log("student not in the list, am dding him there");
-        }
       })
 
       .catch((err) => {
         console.log("Error in updating lecture rating", err);
       });
-
-    // database("lecture_members")
-    //   .join("users", "lecture_members.member_id", "=", "users.stu_no")
-    //   .select("*")
-
-    //   .where({
-    //     lecture_id: data.course_id,
-    //     day_id: data.day_id,
-    //     date: date,
-    //   })
-    //   .orderBy("joined_at")
-    //   .then((data8) => {
-    //     //res.send([...data, data8]);
-    //     //  console.log("updatedMembersList", data8);
-    //     // io.in(`${room}`).emit("updatedMembersList", data8);
-
-    //     io.in(`${data.course_id}`).emit("updatedMembersList", data8);
-    //     io.in(`${data.course_id}`).emit("addStudentToClassFromServer", data);
-    //   });
   });
 
   socket.on("joinRoom", (roomToJoin) => {
@@ -917,22 +880,22 @@ io.on("connection", (socket) => {
           date
         );
         //console.log("THe lecture", lecture);
-
+        // console.log("members", membersInLecture);
         membersInLecture.map((m) => {
-          if (m.is_class_rep) {
-            io.in(`${room}`).emit("lectureHasStartedFromServer", {
-              start_time: lecture.started_at,
-              course_id: lecture.c_unit_id,
-              started: true,
-              class_rep_id: m.stu_no,
-              lectureMode: data.lectureMode,
-              link: data.link,
-              meetingId: data.meetingId,
-              passcode: data.passcode,
-            });
-          }
+          // if (m.is_class_rep) {
+          io.in(`${room}`).emit("lectureHasStartedFromServer", {
+            start_time: lecture.started_at,
+            course_id: lecture.c_unit_id,
+            started: true,
+            class_rep_id: m.is_class_rep ? m.stu_no : null,
+            lectureMode: data.lectureMode,
+            link: data.link,
+            meetingId: data.meetingId,
+            passcode: data.passcode,
+          });
+          // }
         });
-        //console.log("members", membersInLecture);
+
         io.in(`${room}`).emit("updatedMembersList", membersInLecture);
 
         //console.log("lecture details", lectureDetails);
@@ -1015,7 +978,7 @@ const addMember = async (
   joinedAt
 ) => {
   let res;
-  database("lecture_members")
+  await database("lecture_members")
     .insert({
       member_id,
       day_id,
@@ -1027,21 +990,21 @@ const addMember = async (
     })
     .then(async (data8) => {
       console.log("Member added sucessfully", data8);
-      await database("lecture_members")
-        .join("users", "lecture_members.member_id", "=", "users.stu_no")
-        .select("*")
+      // await database("lecture_members")
+      //   .join("users", "lecture_members.member_id", "=", "users.stu_no")
+      //   .select("*")
 
-        .where({
-          lecture_id: lecture_id,
-          day_id: day_id,
-          date: date,
-        })
-        .then((data) => {
-          //res.send([...data, data8]);
-          // console.log("updatedMembersListfromLecturer", data);
-          io.in(`${lecture_id}`).emit("updatedMembersList", data);
-        })
-        .catch((err) => console.log(err));
+      //   .where({
+      //     lecture_id: lecture_id,
+      //     day_id: day_id,
+      //     date: date,
+      //   })
+      //   .then((data) => {
+      //     //res.send([...data, data8]);
+      //     // console.log("updatedMembersListfromLecturer", data);
+      //     io.in(`${lecture_id}`).emit("updatedMembersList", data);
+      //   })
+      // .catch((err) => console.log(err));
     });
 
   return res;
@@ -1138,10 +1101,10 @@ async function updateLectureMembers(data, data2, members, date) {
         new Date().toLocaleTimeString()
       );
     }
-    const updatedMembersList = await database("lecture_members")
-      .join("users", "lecture_members.member_id", "=", "users.stu_no")
-      .select("*")
-      .where({ lecture_id: data.lecture_id, day_id: data.day_id, date: date });
+    // const updatedMembersList = await database("lecture_members")
+    //   .join("users", "lecture_members.member_id", "=", "users.stu_no")
+    //   .select("*")
+    //   .where({ lecture_id: data.lecture_id, day_id: data.day_id, date: date });
 
     // io.in(`${room}`).emit("updatedMembersList", updatedMembersList);
   };
@@ -1165,7 +1128,15 @@ async function updateLectureMembers(data, data2, members, date) {
   }
   const updatedMembersList = await database("lecture_members")
     .join("users", "lecture_members.member_id", "=", "users.stu_no")
-    .select("*")
+    .select(
+      "users.id",
+      "lecture_members.*",
+      "users.userfull_name",
+      "users.username",
+      "users.token",
+      "users.role",
+      "users.stu_no"
+    )
     .where({ lecture_id: data.lecture_id, day_id: data.day_id, date: date });
 
   return updatedMembersList;

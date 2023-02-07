@@ -774,52 +774,131 @@ router.post("/lectureHasEnded", (req, res) => {
 });
 
 //watch out for this one: checking to see if the student is subscribed for the given lecture
-router.post("/checkStudentSubscription/", (req, res) => {
+router.post("/checkStudentSubscription/", async (req, res) => {
   const { course_id, stu_id, date } = req.body;
   //console.log(req.body);
   const d = new Date();
   // const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 
-  database("lectures")
+  const actualStudent = await database("students_biodata")
     .select("*")
     .where({
-      course_unit_id: course_id,
-      date,
+      stdno: stu_id,
     })
-    .then((data) => {
-      if (data[0].has_ended) {
-        res.status(500).send({
-          success: false,
-          message:
-            "This lecture has already ended, No student is allowed to join!",
-        });
-      } else {
-        database("stu_selected_course_units")
-          .join(
-            "users",
-            "stu_selected_course_units.stu_id",
-            "=",
-            "users.stu_no"
-          )
-          .select("*")
+    .first();
 
-          .where({
-            course_id,
-            stu_id,
-          })
-          .then((data) => {
-            database("lecture_members")
-              .where(function () {
-                this.where("member_id", "=", stu_id);
-              })
-              .andWhere("lecture_id", course_id)
-              .andWhere("date", date)
-              .then((data8) => {
-                res.send([...data, data8]);
-              });
-          });
-      }
+  //first, lets check if the lecture is still on!!!
+  const data = await database("lectures").select("*").where({
+    course_unit_id: course_id,
+    date,
+  });
+  //checking if the lecture actually exists
+  if (data.length === 0) {
+    res.status(400).send({
+      success: false,
+      message: "This lecture has not yet started",
     });
+    return;
+  }
+
+  if (data[0].has_ended) {
+    //the lecture has already ended
+    res.status(400).send({
+      success: false,
+      message: "This lecture has already ended, No student is allowed to join!",
+    });
+
+    return;
+  }
+
+  if (data[0].has_started) {
+    const enrolledStudent = await database("stu_selected_course_units")
+      .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
+      .select("*")
+      .where({
+        course_id,
+        stu_id,
+      });
+
+    if (enrolledStudent.length == 0) {
+      //student with stdno is not enrolled
+      res.send({
+        success: false,
+        message: `student with student no ${stu_id} is not yet enrolled in this unit`,
+      });
+
+      return;
+    }
+
+    //after proving enrollment, we need to know if he is already in the lecture
+    const studentInLecture = await database("lecture_members")
+      .where(function () {
+        this.where("member_id", "=", stu_id);
+      })
+      .andWhere("lecture_id", course_id)
+      .andWhere("date", date)
+      .select("*");
+
+    if (studentInLecture[0]) {
+      res.send({
+        success: false,
+        message:
+          `student already in lecture, ${actualStudent.name} has already joined this lecture`.toUpperCase(),
+      });
+      return;
+    }
+
+    res.send({
+      success: true,
+      data: {
+        studentName: actualStudent.name,
+        course_id: course_id,
+        stu_id: stu_id,
+      },
+    });
+    return;
+  }
+
+  // database("lectures")
+  //   .select("*")
+  //   .where({
+  //     course_unit_id: course_id,
+  //     date,
+  //   })
+  //   .then((data) => {
+  //     if (data[0].has_ended) {
+  //       res.status(500).send({
+  //         success: false,
+  //         message:
+  //           "This lecture has already ended, No student is allowed to join!",
+  //       });
+  //     } else {
+  //       database("stu_selected_course_units")
+  //         .join(
+  //           "users",
+  //           "stu_selected_course_units.stu_id",
+  //           "=",
+  //           "users.stu_no"
+  //         )
+  //         .select("*")
+
+  //         .where({
+  //           course_id,
+  //           stu_id,
+  //         })
+  //         .then((data) => {
+  //           database("lecture_members")
+  //             .where(function () {
+  //               this.where("member_id", "=", stu_id);
+  //             })
+  //             .andWhere("lecture_id", course_id)
+  //             .andWhere("date", date)
+  //             .then((data8) => {
+  //               res.send([...data, data8]);
+  //             });
+  //         });
+  //     }
+  //   });
 });
 
 module.exports = router;
