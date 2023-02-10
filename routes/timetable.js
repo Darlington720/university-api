@@ -159,6 +159,32 @@ router.post("/addExamTimetable", (req, res) => {
     });
 });
 
+router.get("/requirements/class_tt", async (req, res) => {
+  const schools = await database.select("*").from("schools");
+
+  const staff_members = await database.select("*").from("staff");
+
+  const study_times = await database.select("*").from("study_time");
+
+  const modules = await database.select("*").from("modules");
+
+  const sessions = await database.select("*").from("exam_sessions");
+
+  const rooms = await database.select("*").from("rooms");
+
+  res.send({
+    success: true,
+    result: {
+      schools,
+      staff_members,
+      study_times,
+      modules,
+      sessions,
+      rooms,
+    },
+  });
+});
+
 router.post("/addClassTimetable", async (req, res) => {
   const { headers, timetable } = req.body;
   const d = new Date();

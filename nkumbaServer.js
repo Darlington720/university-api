@@ -428,6 +428,7 @@ app.post("/api/importExceltodb", (req, res) => {
                 });
               });
           } catch (error) {
+            console.log("Error", error);
             res.send({
               success: false,
               message: "Error in file provided",
