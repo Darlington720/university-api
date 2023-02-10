@@ -238,7 +238,7 @@ router.post("/importExceltodb", (req, res) => {
                     ? 0
                     : parseInt(
                         ((parseInt(cleanTotalPaid) +
-                          parseInt(cleanTotalCredinsertsit)) /
+                          parseInt(cleanTotalCredit)) /
                           parseInt(cleanTotalBill)) *
                           100
                       ),
