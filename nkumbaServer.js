@@ -1,5 +1,5 @@
 const express = require("express");
-
+const path = require("path");
 const multer = require("multer");
 const morgan = require("morgan");
 const bodyParser = require("body-parser");
@@ -30,6 +30,7 @@ const secret = "mySecret";
 
 app.use(cors());
 app.use(express.static(__dirname + "/public"));
+app.use(express.static(path.join(__dirname, "build")));
 app.use(fileUpload());
 app.use(
   bodyParser.urlencoded({
@@ -126,6 +127,10 @@ const data = [
   "study_time",
   "schools",
 ];
+
+app.get("/dashboard", function (req, res) {
+  res.sendFile(path.join(__dirname, "build", "index.html"));
+});
 
 data.forEach((item) =>
   app.get(`/${item}`, (req, res) => {
