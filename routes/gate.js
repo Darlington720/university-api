@@ -17,7 +17,7 @@ router.get("/student/:studentNo", (req, res) => {
     .where("students_biodata.stdno", "=", studentNo)
     .andWhere("stu_signin.signin_date", "=", date)
 
-    .then((data3) => {
+    .then(async (data3) => {
       // console.log("data3", data3);
       if (data3.length > 0) {
         if (data3[data3.length - 1].signout_time !== null) {
@@ -61,6 +61,7 @@ router.get("/student/:studentNo", (req, res) => {
                           biodata: data2[0],
                           percentages: payment_percentages,
                           registration_status: regStatus,
+
                           otherDetails: {
                             todaysStatus: "not new",
 
@@ -118,6 +119,23 @@ router.get("/student/:studentNo", (req, res) => {
             });
         }
       } else {
+        const allSessions = await database
+          .select("*")
+          .from("university_sessions")
+          .orderBy("us_id", "desc")
+          .limit(1);
+
+        const currentSession = allSessions[0];
+
+        const studentEnrollmentForTheCurrentSession = await database
+          .select("*")
+          .from("student_enrollment")
+          .where({
+            stu_no: studentNo,
+            sem_half: currentSession.session_sem,
+            year: currentSession.session_year,
+          });
+
         database
           .select("*")
           .from("students_biodata")
@@ -136,18 +154,42 @@ router.get("/student/:studentNo", (req, res) => {
                 .then((payment_percentages) => {
                   let regStatus = "Not Registered";
 
-                  if (
-                    payment_percentages.length === 0 ||
-                    payment_percentages[payment_percentages.length - 1]
-                      .paid_percentage < 100
-                  ) {
-                    regStatus = "Not Registered";
-                  } else if (
-                    payment_percentages[payment_percentages.length - 1]
-                      .paid_percentage >= 100
-                  ) {
-                    regStatus = "Registered";
-                  }
+                  payment_percentages.map((payment) => {
+                    if (studentEnrollmentForTheCurrentSession[0]) {
+                      if (
+                        payment.study_yr ===
+                          studentEnrollmentForTheCurrentSession[0].study_yr &&
+                        payment.sem ===
+                          studentEnrollmentForTheCurrentSession[0].sem &&
+                        payment.paid_percentage < 100
+                      ) {
+                        regStatus = "Not Registered";
+                      } else if (
+                        payment.study_yr ===
+                          studentEnrollmentForTheCurrentSession[0].study_yr &&
+                        payment.sem ===
+                          studentEnrollmentForTheCurrentSession[0].sem &&
+                        payment.paid_percentage >= 100
+                      ) {
+                        regStatus = "Registered";
+                      }
+                    } else {
+                      if (
+                        payment.study_yr === data2[0].study_yr &&
+                        payment.sem === data2[0].current_sem &&
+                        payment.paid_percentage < 100
+                      ) {
+                        regStatus = "Not Registered";
+                      } else if (
+                        payment.study_yr === data2[0].study_yr &&
+                        payment.sem === data2[0].current_sem &&
+                        payment.paid_percentage >= 100
+                      ) {
+                        regStatus = "Registered";
+                      }
+                    }
+                  });
+
                   database
                     .select("*")
                     .from("constraints")
@@ -158,6 +200,8 @@ router.get("/student/:studentNo", (req, res) => {
                           biodata: data2[0],
                           percentages: payment_percentages,
                           registration_status: regStatus,
+                          enrollmentDetails:
+                            studentEnrollmentForTheCurrentSession[0],
                           otherDetails: {
                             todaysStatus: false,
                             imageUrl: data2[0]
