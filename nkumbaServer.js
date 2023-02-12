@@ -19,7 +19,10 @@ const uploadRouter = require("./routes/upload");
 const timetable = require("./routes/timetable");
 const cors = require("cors");
 const moment = require("moment");
-const { sendPushNotifications } = require("./pushNotifications");
+const {
+  sendPushNotifications,
+  sendMultiplePushNotifications,
+} = require("./pushNotifications");
 var { baseIp, port, database } = require("./config");
 
 const fileUpload = require("express-fileupload");
@@ -462,6 +465,60 @@ app.get(`/gates/:campus`, (req, res) => {
     });
 });
 
+app.post("/api/sendNotificationsToEnrolledStudents", async (req, res) => {
+  const { lecture_id, date } = req.body;
+  //console.log(req.params);
+
+  const enrolledStudents = await database("stu_selected_course_units")
+    .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
+    .where({
+      course_id: lecture_id,
+    })
+    .select("*");
+
+  const lectureDetails = await getLectureDetails(req.body, date);
+
+  //console.log("All the enrolled students", enrolledStudents);
+
+  let pushTokens = [];
+
+  enrolledStudents.map((student) => {
+    if (student.token) {
+      pushTokens.push(student.token);
+      // sendPushNotifications(
+      //   `${student.token}`,
+      //   `The lecture has started`,
+      //   `${student.course_name}`,
+      //   { ...lectureDetails[0], navigateTo: "todaysLectures" }
+      // );
+    }
+  });
+
+  console.log("THe push tokens", pushTokens);
+
+  sendMultiplePushNotifications(
+    pushTokens,
+    enrolledStudents[0].course_name,
+    `The lecture has started`,
+    { ...lectureDetails[0], navigateTo: "todaysLectures" }
+  );
+});
+
+app.get("/api/currentUniversitySession", async (req, res) => {
+  const allSessions = await database
+    .select("*")
+    .from("university_sessions")
+    .orderBy("us_id", "desc")
+    .limit(1);
+
+  // console.log("all the sessions", allSessions);
+  res.send({
+    success: true,
+    result: allSessions[0],
+  });
+  //i want to return the latest
+});
+
 const expressServer = app.listen(port, baseIp, () =>
   console.log(`App is running on port ${port}`)
 );
@@ -571,7 +628,7 @@ io.on("connection", (socket) => {
           .join(
             "study_time",
             "timetable_groups.study_time_id",
-            "study_time.st_id"
+            "study_time.study_time_code"
           )
           .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
           .join("schools", "timetable_groups.school_id", "schools.school_id")
@@ -1125,7 +1182,11 @@ io.on("connection", (socket) => {
         "lecture_timetable.timetable_group_id",
         "timetable_groups.tt_gr_id "
       )
-      .join("study_time", "timetable_groups.study_time_id", "study_time.st_id")
+      .join(
+        "study_time",
+        "timetable_groups.study_time_id",
+        "study_time.study_time_code"
+      )
       .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
       .join("schools", "timetable_groups.school_id", "schools.school_id")
 
@@ -1196,27 +1257,27 @@ io.on("connection", (socket) => {
         //console.log("lecture details", lectureDetails);
       });
 
-    const lectureDetails = await getLectureDetails(data, date);
+    // const lectureDetails = await getLectureDetails(data, date);
 
-    const enrolledStudents = await database("stu_selected_course_units")
-      .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
-      .where({
-        course_id: data.lecture_id,
-      })
-      .select("*");
+    // const enrolledStudents = await database("stu_selected_course_units")
+    //   .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
+    //   .where({
+    //     course_id: data.lecture_id,
+    //   })
+    //   .select("*");
 
     //console.log("All the enrolled students", enrolledStudents);
 
-    enrolledStudents.map((student) => {
-      if (student.token) {
-        sendPushNotifications(
-          `${student.token}`,
-          `The lecture has started`,
-          `${student.course_name}`,
-          { ...lectureDetails[0], navigateTo: "todaysLectures" }
-        );
-      }
-    });
+    // enrolledStudents.map((student) => {
+    //   if (student.token) {
+    //     sendPushNotifications(
+    //       `${student.token}`,
+    //       `The lecture has started`,
+    //       `${student.course_name}`,
+    //       { ...lectureDetails[0], navigateTo: "todaysLectures" }
+    //     );
+    //   }
+    // });
   });
 });
 
@@ -1452,7 +1513,11 @@ async function getLectureDetails(data, date) {
       "lecture_timetable.timetable_group_id",
       "timetable_groups.tt_gr_id "
     )
-    .join("study_time", "timetable_groups.study_time_id", "study_time.st_id")
+    .join(
+      "study_time",
+      "timetable_groups.study_time_id",
+      "study_time.study_time_code"
+    )
     .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
     .join("schools", "timetable_groups.school_id", "schools.school_id")
 

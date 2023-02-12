@@ -12,12 +12,31 @@ router.post("/login", (req, res) => {
       password: password,
     })
     .from("users")
-    .then((user) => {
+    .then(async (user) => {
       // console.log(user);
       if (!user[0]) {
         res.status(400).json({ error: "Invalid email or password" });
       } else {
         if (user[0].role == "Student") {
+          const allSessions = await database
+            .select("*")
+            .from("university_sessions")
+            .orderBy("us_id", "desc")
+            .limit(1);
+
+          const currentSession = allSessions[0];
+
+          const studentEnrollmentForTheCurrentSession = await database
+            .select("*")
+            .from("student_enrollment")
+            .where({
+              stu_no: user[0].stu_no,
+              sem_half: currentSession.session_sem,
+              year: currentSession.session_year,
+            });
+
+          // console.log("Enrollment", studentEnrollmentForTheCurrentSession);
+
           database
             // .orderBy("id")
             .select("*")
@@ -55,6 +74,7 @@ router.post("/login", (req, res) => {
                     ...user[0],
                     otherData: studentData,
                     imageUrl: `http://${baseIp}:${port}/assets/${user[0].user_image}`,
+                    enrollmentDetails: studentEnrollmentForTheCurrentSession[0],
                     studentCourseUnits: courseUnitsData,
                   });
                 });

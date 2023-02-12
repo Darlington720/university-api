@@ -19,6 +19,102 @@ router.get(`/studentBiodata/:stdno`, (req, res) => {
     });
 });
 
+router.get("/studentEnrollmentInCurrentSem/:stu_no", async (req, res) => {
+  const { stu_no } = req.params;
+  const allSessions = await database
+    .select("*")
+    .from("university_sessions")
+    .orderBy("us_id", "desc")
+    .limit(1);
+
+  const currentSession = allSessions[0];
+
+  const studentEnrollmentForTheCurrentSession = await database
+    .select("*")
+    .from("student_enrollment")
+    .where({
+      stu_no: stu_no,
+      sem_half: currentSession.session_sem,
+      year: currentSession.session_year,
+    });
+
+  res.send({
+    success: true,
+    result: {
+      current_session: currentSession,
+      status: studentEnrollmentForTheCurrentSession.length === 0 ? false : true,
+    },
+  });
+});
+
+router.post("/saveStudentEnrollment", async (req, res) => {
+  //save the records, but the student can't go back to previous semesters
+  console.log("body", req.body);
+  try {
+    const { stu_no, study_yr, sem, sem_half, year } = req.body;
+
+    const studentBio = await database
+      .select("study_yr", "current_sem")
+      .from("students_biodata")
+      .where(function () {
+        this.where("stdno", "=", stu_no);
+      });
+
+    // console.log("Bio", studentBio);
+
+    const studentEnrollmentForTheCurrentSession = await database
+      .select("*")
+      .from("student_enrollment")
+      .where({
+        stu_no,
+        sem_half,
+        year,
+      });
+
+    if (
+      studentEnrollmentForTheCurrentSession.length > 0 ||
+      (parseInt(study_yr) <= parseInt(studentBio[0].study_yr) &&
+        parseInt(sem) <= parseInt(studentBio[0].current_sem))
+    ) {
+      return res.send({
+        success: false,
+        result: "You can't enroll in previous semesters",
+      });
+    }
+
+    const result = await database("student_enrollment").insert({
+      stu_no,
+      study_yr,
+      sem,
+      sem_half,
+      year,
+    });
+
+    const [insertedRow] = await database
+      .select()
+      .from("student_enrollment")
+      .where({
+        stu_no,
+        study_yr,
+        sem,
+        sem_half,
+        year,
+      })
+      .limit(1);
+
+    res.send({
+      success: true,
+      result: insertedRow,
+    });
+  } catch (error) {
+    console.log("error", error);
+    res.send({
+      success: false,
+      result: "System experienced an error, please try again",
+    });
+  }
+});
+
 router.get("/mySelectedCourseUnits/:stu_no", (req, res) => {
   const { stu_no } = req.params;
   // console.log("new", stu_no);
@@ -75,7 +171,11 @@ router.post("/myCourseUnitsTodayDashboard/", (req, res) => {
       "lecture_timetable.timetable_group_id",
       "timetable_groups.tt_gr_id "
     )
-    .join("study_time", "timetable_groups.study_time_id", "study_time.st_id")
+    .join(
+      "study_time",
+      "timetable_groups.study_time_id",
+      "study_time.study_time_code"
+    )
     .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
     .join("schools", "timetable_groups.school_id", "schools.school_id")
 
@@ -231,13 +331,17 @@ router.post("/myCourseUnitsToday/", (req, res) => {
       "lecture_timetable.timetable_group_id",
       "timetable_groups.tt_gr_id "
     )
-    .join("study_time", "timetable_groups.study_time_id", "study_time.st_id")
+    .join(
+      "study_time",
+      "timetable_groups.study_time_id",
+      "study_time.study_time_code"
+    )
     .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
     .join("schools", "timetable_groups.school_id", "schools.school_id")
 
     .where("day_id", "=", req.body.day)
     .andWhere("schools.alias", "=", req.body.school)
-    .andWhere("study_time.study_time_name", "=", req.body.study_time)
+    // .andWhere("study_time.study_time_name", "=", req.body.study_time)
     .join(
       "stu_selected_course_units",
       "lecture_timetable.c_unit_id",
@@ -247,6 +351,7 @@ router.post("/myCourseUnitsToday/", (req, res) => {
     .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
 
     .leftJoin("lectures", "lecture_timetable.tt_id", "=", "lectures.l_tt_id")
+    // .select("*")
     .select(
       "lecture_timetable.tt_id",
       "lecture_timetable.day_id",
@@ -279,7 +384,7 @@ router.post("/myCourseUnitsToday/", (req, res) => {
         return newObj;
       });
       // res.send(lectures);
-      //console.log("The lectures", data);
+      // console.log("The lectures", data);
 
       data.map((item) => {
         JSON.parse(req.body.myArray).map((reqItem, index) => {
@@ -379,52 +484,65 @@ router.get(`/allCourseUnits/:course_code`, (req, res) => {
     });
 });
 
-router.post("/addSelectedCourseUnit", (req, res) => {
-  const { stu_no, course_id, course_name, course_code } = req.body;
+router.post("/addSelectedCourseUnit", async (req, res) => {
+  const { stu_no, course_id, course_name, course_code, original_course_id } =
+    req.body;
   let status = false;
-  // console.log("sent course unit", req.body);
-  database
-    // .orderBy("id")
-    .select("*")
+  console.log("sent course unit", req.body);
+  const studentSelectedCourseUnits = await database
     .from("stu_selected_course_units")
-    // .join(
-    //   "modules",
-    //   "stu_selected_course_units.course_id",
-    //   "=",
-    //   "modules.course_id"
-    // )
     .where(function () {
       this.where("stu_id", "=", stu_no);
     })
-    .then((data) => {
-      data.forEach((item) => {
-        if (item.course_id == course_id) {
-          res.send(
-            `${item.course_name} already added, Please Choose another one`
-          );
-          status = true;
-        }
-      });
-      if (status == false) {
-        if (data.length >= 8) {
-          // console.log("the course units", data);
-          // console.log("length of selected course units", data.length);
-          res.send("Maximum number of course units selected");
-        } else {
-          database("stu_selected_course_units")
-            .insert({
-              stu_id: stu_no,
-              course_id: course_id,
-              course_name: course_name,
-              course: course_code,
-            })
-            .then((data) => {
-              res.send("Course Unit added Successfully");
-            })
-            .catch((err) => res.send(err));
-        }
-      }
+    .select("*");
+
+  studentSelectedCourseUnits.forEach((courseUnit) => {
+    if (
+      courseUnit.course_id === course_id ||
+      courseUnit.course_id === original_course_id
+    ) {
+      res.send(
+        `${courseUnit.course_name} already added, Please Choose another one`
+      );
+      status = true;
+    }
+  });
+
+  if (status === true) return;
+
+  if (studentSelectedCourseUnits.length >= 8) {
+    return res.send("Maximum number of course units selected");
+  }
+
+  const timetable = await database
+    .from("lecture_timetable")
+    .where(function () {
+      this.where("c_unit_id", "=", original_course_id);
+    })
+    .select("*");
+
+  if (timetable.length > 0) {
+    const result = await database("stu_selected_course_units").insert({
+      stu_id: stu_no,
+      course_id: original_course_id,
+      course_name: course_name,
+      course: course_code,
     });
+
+    return res.send("Course Unit added Successfully");
+  }
+
+  database("stu_selected_course_units")
+    .insert({
+      stu_id: stu_no,
+      course_id: course_id,
+      course_name: course_name,
+      course: course_code,
+    })
+    .then((data) => {
+      res.send("Course Unit added Successfully");
+    })
+    .catch((err) => res.send(err));
 
   // res.send("Received the data");
 });

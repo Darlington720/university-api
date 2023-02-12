@@ -15,7 +15,11 @@ router.get("/lectureTimetable", (req, res) => {
       "lecture_timetable.timetable_group_id",
       "timetable_groups.tt_gr_id "
     )
-    .join("study_time", "timetable_groups.study_time_id", "study_time.st_id")
+    .join(
+      "study_time",
+      "timetable_groups.study_time_id",
+      "study_time.study_time_code"
+    )
     .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
     .join("schools", "timetable_groups.school_id", "schools.school_id")
 
@@ -308,6 +312,76 @@ router.post("/examTT", (req, res) => {
       res.send(exData);
     })
     .catch((err) => console.log("error ", err));
+});
+
+router.post("/classTT", async (req, res) => {
+  const { studyTime, campus, sem, year } = req.body;
+
+  function getDayName(dayNumber) {
+    const daysOfWeek = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    return daysOfWeek[dayNumber % 7];
+  }
+  console.log("Received this", req.body);
+  const tt_group = await database("timetable_groups")
+    .join("schools", "timetable_groups.school_id", "=", "schools.school_id")
+    .select("*")
+    .where({
+      study_time_id: studyTime,
+      campus: campus,
+      sem: sem,
+      year: year,
+    })
+    .andWhere("schools.alias", "=", req.body.school)
+    .first();
+
+  console.log("the group", tt_group);
+  // res.send(tt_group);
+
+  if (!tt_group) {
+    return res.send([]);
+  }
+
+  const timetable = await database("lecture_timetable")
+    // .join("schools", "timetable_groups.school_id", "=", "schools.school_id")
+    // .select("*")
+    .join(
+      "lecture_sessions",
+      "lecture_timetable.session_id",
+      "lecture_sessions.ls_id "
+    )
+    .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
+
+    .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
+    .where({
+      timetable_group_id: tt_group.tt_gr_id,
+    })
+    .select(
+      "lecture_timetable.tt_id",
+      "lecture_timetable.day_id",
+      "lecture_sessions.session_name",
+      "rooms.room_name",
+      "lecture_timetable.c_unit_id",
+      "lecture_timetable.course_unit_name",
+      "lecture_timetable.lecturer_id",
+      "staff.*"
+    );
+
+  let result = [];
+
+  timetable.map((tt) => {
+    let day = getDayName(parseInt(tt.day_id));
+    result.push({ ...tt, day });
+  });
+
+  res.send(result);
 });
 
 module.exports = router;

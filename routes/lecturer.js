@@ -38,7 +38,11 @@ router.post("/lecturerCourseunits/", (req, res) => {
       "lecture_timetable.timetable_group_id",
       "timetable_groups.tt_gr_id "
     )
-    .join("study_time", "timetable_groups.study_time_id", "study_time.st_id")
+    .join(
+      "study_time",
+      "timetable_groups.study_time_id",
+      "study_time.study_time_code"
+    )
     .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
     .join("schools", "timetable_groups.school_id", "schools.school_id")
     .where({
