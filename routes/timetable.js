@@ -372,7 +372,8 @@ router.post("/classTT", async (req, res) => {
       "lecture_timetable.course_unit_name",
       "lecture_timetable.lecturer_id",
       "staff.*"
-    );
+    )
+    .orderBy("lecture_timetable.day_id", "ASC");
 
   let result = [];
 

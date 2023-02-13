@@ -1,4 +1,4 @@
-const baseIp = "10.7.4.20";
+const baseIp = "192.168.1.157";
 var knex = require("knex");
 const port = 9000;
 
