@@ -193,27 +193,63 @@ router.get("/weeklyChartData", (req, res) => {
   }
 });
 
+// router.get("/students-per-week", async (req, res) => {
+//   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+//   const currentDayOfWeek = moment().format("d");
+//   const currentWeek = [];
+
+//   for (let i = 0; i <= currentDayOfWeek; i++) {
+//     currentWeek.push(daysOfWeek[i]);
+//   }
+
+//   const currentWeekStart = moment().startOf("week").format("YYYY-MM-DD");
+//   const currentDate = moment().format("YYYY-MM-DD");
+
+//   const results = await database
+//     .select(database.raw("DATE(signin_date) as signin_date, count(*) as count"))
+//     .from("student_signin")
+//     .whereBetween("signin_date", [currentWeekStart, currentDate])
+//     .groupBy("signin_date")
+//     .orderBy("signin_date");
+
+//   const data = Array(currentDayOfWeek + 1).fill(0);
+//   const labels = currentWeek;
+
+//   results.forEach((result) => {
+//     const dayOfWeek = moment(result.signin_date).format("d");
+//     const index = currentWeek.indexOf(daysOfWeek[dayOfWeek]);
+//     data[index] = result.count;
+//   });
+
+//   res.json({ labels, data });
+// });
+
 router.get("/students-per-week", async (req, res) => {
   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   const currentDayOfWeek = moment().format("d");
   const currentWeek = [];
 
-  for (let i = 0; i <= currentDayOfWeek; i++) {
+  for (let i = currentDayOfWeek; i < 7; i++) {
+    currentWeek.push(daysOfWeek[i]);
+  }
+
+  for (let i = 0; i < currentDayOfWeek; i++) {
     currentWeek.push(daysOfWeek[i]);
   }
 
   const currentWeekStart = moment().startOf("week").format("YYYY-MM-DD");
-  const currentDate = moment().format("YYYY-MM-DD");
+  const currentWeekEnd = moment().endOf("week").format("YYYY-MM-DD");
 
   const results = await database
     .select(database.raw("DATE(signin_date) as signin_date, count(*) as count"))
     .from("student_signin")
-    .whereBetween("signin_date", [currentWeekStart, currentDate])
+    .whereBetween("signin_date", [currentWeekStart, currentWeekEnd])
     .groupBy("signin_date")
     .orderBy("signin_date");
 
-  const data = Array(currentDayOfWeek + 1).fill(0);
+  const data = Array(7).fill(0);
   const labels = currentWeek;
 
   results.forEach((result) => {
@@ -224,7 +260,6 @@ router.get("/students-per-week", async (req, res) => {
 
   res.json({ labels, data });
 });
-
 router.get("/weeklyLectureData", (req, res) => {
   const d = new Date();
   const currentDate =

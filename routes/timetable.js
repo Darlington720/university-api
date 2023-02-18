@@ -261,6 +261,51 @@ router.post("/addClassTimetable", async (req, res) => {
   }
 });
 
+router.post("/updateClassTimetable", async (req, res) => {
+  // console.log("Receiving ", req.body);
+
+  try {
+    const updateLecture = await database
+      .select("*")
+      .from("lecture_timetable")
+      .where({
+        tt_id: req.body.timetable_id,
+      })
+      .update({
+        day_id: req.body.day.value,
+        session_id: req.body.session.value,
+        room_id: req.body.room.value,
+        c_unit_id: req.body.selectedModule.value.course_code,
+        course_unit_name: req.body.selectedModule.value.course_name,
+        lecturer_id: req.body.lecturer.value,
+      });
+
+    res.send({
+      success: true,
+      result: "lecture updated successfully",
+    });
+  } catch (error) {
+    console.log("Error in updating the lecture", error);
+  }
+});
+
+router.delete("/deleteLecture/:tt_id", async (req, res) => {
+  const { tt_id } = req.params;
+
+  database("lecture_timetable")
+    .where("tt_id", tt_id)
+    .del()
+    .then((data) => {
+      res.send({
+        success: true,
+        result: "Lecture deleted Successfully",
+      });
+    })
+    .catch((err) => {
+      console.log("err", err);
+    });
+});
+
 router.post("/examTT", (req, res) => {
   // const { date, room, session } = req.body;
   console.log("Received this", req.body);
@@ -342,7 +387,7 @@ router.post("/classTT", async (req, res) => {
     .andWhere("schools.alias", "=", req.body.school)
     .first();
 
-  console.log("the group", tt_group);
+  // console.log("the group", tt_group);
   // res.send(tt_group);
 
   if (!tt_group) {
@@ -363,16 +408,17 @@ router.post("/classTT", async (req, res) => {
     .where({
       timetable_group_id: tt_group.tt_gr_id,
     })
-    .select(
-      "lecture_timetable.tt_id",
-      "lecture_timetable.day_id",
-      "lecture_sessions.session_name",
-      "rooms.room_name",
-      "lecture_timetable.c_unit_id",
-      "lecture_timetable.course_unit_name",
-      "lecture_timetable.lecturer_id",
-      "staff.*"
-    )
+    // .select(
+    //   "lecture_timetable.tt_id",
+    //   "lecture_timetable.day_id",
+    //   "lecture_sessions.session_name",
+    //   "rooms.room_name",
+    //   "lecture_timetable.c_unit_id",
+    //   "lecture_timetable.course_unit_name",
+    //   "lecture_timetable.lecturer_id",
+    //   "staff.*"
+    // )
+    .select("*")
     .orderBy("lecture_timetable.day_id", "ASC");
 
   let result = [];
