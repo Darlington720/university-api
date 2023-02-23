@@ -387,7 +387,7 @@ router.post("/classTT", async (req, res) => {
     .andWhere("schools.alias", "=", req.body.school)
     .first();
 
-  // console.log("the group", tt_group);
+  console.log("the group", tt_group);
   // res.send(tt_group);
 
   if (!tt_group) {

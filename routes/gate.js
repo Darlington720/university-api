@@ -19,6 +19,24 @@ router.get("/student/:studentNo", (req, res) => {
 
     .then(async (data3) => {
       // console.log("data3", data3);
+
+      const allSessions = await database
+        .select("*")
+        .from("university_sessions")
+        .orderBy("us_id", "desc")
+        .limit(1);
+
+      const currentSession = allSessions[0];
+
+      const studentEnrollmentForTheCurrentSession = await database
+        .select("*")
+        .from("student_enrollment")
+        .where({
+          stu_no: studentNo,
+          sem_half: currentSession.session_sem,
+          year: currentSession.session_year,
+        });
+
       if (data3.length > 0) {
         if (data3[data3.length - 1].signout_time !== null) {
           // res.send("Already registered");
@@ -39,18 +57,55 @@ router.get("/student/:studentNo", (req, res) => {
                 .then((payment_percentages) => {
                   let regStatus = "Not Registered";
 
-                  if (
-                    payment_percentages.length === 0 ||
-                    payment_percentages[payment_percentages.length - 1]
-                      .paid_percentage < 100
-                  ) {
-                    regStatus = "Not Registered";
-                  } else if (
-                    payment_percentages[payment_percentages.length - 1]
-                      .paid_percentage >= 100
-                  ) {
-                    regStatus = "Registered";
-                  }
+                  // if (
+                  //   payment_percentages.length === 0 ||
+                  //   payment_percentages[payment_percentages.length - 1]
+                  //     .paid_percentage < 100
+                  // ) {
+                  //   regStatus = "Not Registered";
+                  // } else if (
+                  //   payment_percentages[payment_percentages.length - 1]
+                  //     .paid_percentage >= 100
+                  // ) {
+                  //   regStatus = "Registered";
+                  // }
+
+                  payment_percentages.map((payment) => {
+                    if (studentEnrollmentForTheCurrentSession[0]) {
+                      if (
+                        payment.study_yr ===
+                          studentEnrollmentForTheCurrentSession[0].study_yr &&
+                        payment.sem ===
+                          studentEnrollmentForTheCurrentSession[0].sem &&
+                        payment.paid_percentage < 100
+                      ) {
+                        regStatus = "Not Registered";
+                      } else if (
+                        payment.study_yr ===
+                          studentEnrollmentForTheCurrentSession[0].study_yr &&
+                        payment.sem ===
+                          studentEnrollmentForTheCurrentSession[0].sem &&
+                        payment.paid_percentage >= 100
+                      ) {
+                        regStatus = "Registered";
+                      }
+                    } else {
+                      if (
+                        payment.study_yr === data2[0].study_yr &&
+                        payment.sem === data2[0].current_sem &&
+                        payment.paid_percentage < 100
+                      ) {
+                        regStatus = "Not Registered";
+                      } else if (
+                        payment.study_yr === data2[0].study_yr &&
+                        payment.sem === data2[0].current_sem &&
+                        payment.paid_percentage >= 100
+                      ) {
+                        regStatus = "Registered";
+                      }
+                    }
+                  });
+
                   database
                     .select("*")
                     .from("constraints")
@@ -61,7 +116,8 @@ router.get("/student/:studentNo", (req, res) => {
                           biodata: data2[0],
                           percentages: payment_percentages,
                           registration_status: regStatus,
-
+                          enrollmentDetails:
+                            studentEnrollmentForTheCurrentSession[0],
                           otherDetails: {
                             todaysStatus: "not new",
 
@@ -85,18 +141,55 @@ router.get("/student/:studentNo", (req, res) => {
             .then((payment_percentages) => {
               let regStatus = "Not Registered";
 
-              if (
-                payment_percentages.length === 0 ||
-                payment_percentages[payment_percentages.length - 1]
-                  .paid_percentage < 100
-              ) {
-                regStatus = "Not Registered";
-              } else if (
-                payment_percentages[payment_percentages.length - 1]
-                  .paid_percentage >= 100
-              ) {
-                regStatus = "Registered";
-              }
+              // if (
+              //   payment_percentages.length === 0 ||
+              //   payment_percentages[payment_percentages.length - 1]
+              //     .paid_percentage < 100
+              // ) {
+              //   regStatus = "Not Registered";
+              // } else if (
+              //   payment_percentages[payment_percentages.length - 1]
+              //     .paid_percentage >= 100
+              // ) {
+              //   regStatus = "Registered";
+              // }
+
+              payment_percentages.map((payment) => {
+                if (studentEnrollmentForTheCurrentSession[0]) {
+                  if (
+                    payment.study_yr ===
+                      studentEnrollmentForTheCurrentSession[0].study_yr &&
+                    payment.sem ===
+                      studentEnrollmentForTheCurrentSession[0].sem &&
+                    payment.paid_percentage < 100
+                  ) {
+                    regStatus = "Not Registered";
+                  } else if (
+                    payment.study_yr ===
+                      studentEnrollmentForTheCurrentSession[0].study_yr &&
+                    payment.sem ===
+                      studentEnrollmentForTheCurrentSession[0].sem &&
+                    payment.paid_percentage >= 100
+                  ) {
+                    regStatus = "Registered";
+                  }
+                } else {
+                  if (
+                    payment.study_yr === data2[0].study_yr &&
+                    payment.sem === data2[0].current_sem &&
+                    payment.paid_percentage < 100
+                  ) {
+                    regStatus = "Not Registered";
+                  } else if (
+                    payment.study_yr === data2[0].study_yr &&
+                    payment.sem === data2[0].current_sem &&
+                    payment.paid_percentage >= 100
+                  ) {
+                    regStatus = "Registered";
+                  }
+                }
+              });
+
               database
                 .select("*")
                 .from("constraints")
@@ -108,6 +201,8 @@ router.get("/student/:studentNo", (req, res) => {
                       biodata: data3[data3.length - 1],
                       percentages: payment_percentages,
                       registration_status: regStatus,
+                      enrollmentDetails:
+                        studentEnrollmentForTheCurrentSession[0],
                       otherDetails: {
                         todaysStatus: true,
                         imageUrl: `http://${baseIp}:${port}/assets/${data3[0].image}`,
@@ -119,23 +214,6 @@ router.get("/student/:studentNo", (req, res) => {
             });
         }
       } else {
-        const allSessions = await database
-          .select("*")
-          .from("university_sessions")
-          .orderBy("us_id", "desc")
-          .limit(1);
-
-        const currentSession = allSessions[0];
-
-        const studentEnrollmentForTheCurrentSession = await database
-          .select("*")
-          .from("student_enrollment")
-          .where({
-            stu_no: studentNo,
-            sem_half: currentSession.session_sem,
-            year: currentSession.session_year,
-          });
-
         database
           .select("*")
           .from("students_biodata")
@@ -235,6 +313,15 @@ router.get("/student/:studentNo", (req, res) => {
           });
       }
     });
+});
+
+router.get("/constraintList", async (req, res) => {
+  const constraints = await database
+    .select("*")
+    .from("constraints")
+    .orderBy("c_id");
+
+  res.send(constraints);
 });
 
 router.get("/staff/:staffNo", (req, res) => {
@@ -938,14 +1025,15 @@ router.get("/studentGateStatus/:studentNo", async (req, res) => {
     })
     .first();
 
-  if (student) {
-    const gateInfo = await database
-      .select("*")
-      .from("students_biodata")
-      .join("stu_signin", "students_biodata.stdno", "=", "stu_signin.stu_id")
-      .where("students_biodata.stdno", "=", studentNo)
-      .andWhere("stu_signin.signin_date", "=", date);
+  const gateInfo = await database
+    .select("*")
+    .from("students_biodata")
 
+    .join("stu_signin", "students_biodata.stdno", "=", "stu_signin.stu_id")
+    .where("students_biodata.stdno", "=", studentNo)
+    .andWhere("stu_signin.signin_date", "=", date);
+  if (student) {
+    // console.log("gate info", gateInfo);
     if (gateInfo.length > 0) {
       if (gateInfo[gateInfo.length - 1].signout_time !== null) {
         //not new
@@ -953,31 +1041,13 @@ router.get("/studentGateStatus/:studentNo", async (req, res) => {
       } else {
         todaysStatus = true;
       }
+    } else {
+      todaysStatus = false;
     }
   } else {
     todaysStatus = "invalid";
   }
 
-  // if (data3.length > 0) {
-  //   if (data3[data3.length - 1].signout_time !== null) {
-  //     //not new
-  //     todaysStatus = false;
-  //   } else {
-  //     todaysStatus = true;
-  //   }
-  // } else {
-  //   const data2 = await database.select("*").from("students_biodata").where({
-  //     stdno: studentNo,
-  //   });
-
-  //   if (data2[0]) {
-  //     todaysStatus = false;
-  //   } else {
-  //     todaysStatus = "invalid";
-  //   }
-  // }
-
-  // return todaysStatus;
   if (todaysStatus === "invalid") {
     res.send({
       success: false,
@@ -988,6 +1058,12 @@ router.get("/studentGateStatus/:studentNo", async (req, res) => {
       success: true,
       result: {
         status: todaysStatus,
+        signed_in_by: todaysStatus
+          ? gateInfo[gateInfo.length - 1].signined_in_by
+          : null,
+        signin_time: todaysStatus
+          ? gateInfo[gateInfo.length - 1].signin_time
+          : null,
         stu_no: studentNo,
         name: student.name,
       },
