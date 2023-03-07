@@ -909,4 +909,248 @@ router.post("/checkStudentSubscription/", async (req, res) => {
   //   });
 });
 
+router.post("/lectureInfo/", async (req, res) => {
+  const { startDate, endDate, school, campus, studyTime } = req.body;
+
+  const d = new Date(startDate);
+  const s_date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+
+  const d1 = new Date(endDate);
+  const e_date =
+    d1.getFullYear() + "-" + (d1.getMonth() + 1) + "-" + d1.getDate();
+
+  // console.log("start day", `${d.getDay()} ${d}`);
+  // console.log("end day", `${d1.getDay()} ${d1}`);
+
+  // console.log("The date", date);
+
+  // const dateArray = [];
+  // const currentDate = new Date(d);
+  // while (currentDate <= d1) {
+  //   dateArray.push(new Date(currentDate));
+  //   currentDate.setDate(currentDate.getDate() + 1);
+  // }
+
+  const dateArray = [];
+
+  let currentDate = d;
+
+  while (currentDate <= d1) {
+    dateArray.push(new Date(currentDate));
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  // console.log("THe date array", dateArray);
+
+  //first considering one day
+  const attended = await database("lectures")
+    .join("lecture_timetable", "lectures.l_tt_id", "lecture_timetable.tt_id")
+    .join(
+      "timetable_groups",
+      "lecture_timetable.timetable_group_id",
+      "timetable_groups.tt_gr_id"
+    )
+    .join("schools", "timetable_groups.school_id", "schools.school_id")
+    .join("campus", "timetable_groups.campus", "campus.cam_id")
+    .join(
+      "lecture_sessions",
+      "lecture_timetable.session_id",
+      "lecture_sessions.ls_id "
+    )
+    .join(
+      "study_time",
+      "timetable_groups.study_time_id",
+      "study_time.study_time_code"
+    )
+    .leftJoin("rooms", "lecture_timetable.room_id", "rooms.room_id")
+
+    .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
+
+    .where("schools.alias", school)
+    // .andWhere("date", date)
+    .whereBetween("date", [s_date, e_date])
+    .andWhere("campus.campus_name", campus)
+    .select("*");
+
+  let allLectures = [];
+  const f = dateArray.map(async (date) => {
+    const dayId = date.getDay();
+
+    // console.log("Currently on date", `${date} ${dayId}`);
+
+    const lecturesForThatDay = await database("lecture_timetable")
+      .join(
+        "timetable_groups",
+        "lecture_timetable.timetable_group_id",
+        "timetable_groups.tt_gr_id"
+      )
+
+      .join("schools", "timetable_groups.school_id", "schools.school_id")
+      .join("campus", "timetable_groups.campus", "campus.cam_id")
+      .join(
+        "lecture_sessions",
+        "lecture_timetable.session_id",
+        "lecture_sessions.ls_id "
+      )
+      .join(
+        "study_time",
+        "timetable_groups.study_time_id",
+        "study_time.study_time_code"
+      )
+      .leftJoin("rooms", "lecture_timetable.room_id", "rooms.room_id")
+
+      .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
+
+      .where("schools.alias", school)
+      .andWhere("day_id", dayId)
+      .andWhere("campus.campus_name", campus)
+      .select("*");
+
+    // const lecturesForThatDay = await database("lecture_timetable")
+    //   .join(
+    //     "timetable_groups",
+    //     "lecture_timetable.timetable_group_id",
+    //     "timetable_groups.tt_gr_id"
+    //   )
+    //   .join("schools", "timetable_groups.school_id", "schools.school_id")
+    //   .join("campus", "timetable_groups.campus", "campus.cam_id")
+    //   .join(
+    //     "lecture_sessions",
+    //     "lecture_timetable.session_id",
+    //     "lecture_sessions.ls_id "
+    //   )
+    //   .join(
+    //     "study_time",
+    //     "timetable_groups.study_time_id",
+    //     "study_time.study_time_code"
+    //   )
+    //   .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
+    //   .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
+    //   .where("schools.alias", school)
+    //   .andWhere("day_id", dayId)
+    //   .andWhere("campus.campus_name", campus)
+    //   .select("*");
+
+    const lecturesWithDate = lecturesForThatDay.map((lecture) => ({
+      ...lecture,
+      date: date.toISOString(),
+    }));
+
+    allLectures.push(...lecturesWithDate);
+  });
+
+  let attendedLectures = [];
+
+  const x = attended.map(async (lecture) => {
+    // let index = lecture.course_unit_id.lastIndexOf("-");
+    // let trimmedStr = lecture.course_unit_id.slice(0, index);
+    // console.log("The trimmed string", trimmedStr);
+
+    const members = await database("lecture_members")
+      .join("users", "lecture_members.member_id", "=", "users.stu_no")
+      .leftJoin(
+        "students_biodata",
+        "lecture_members.member_id",
+        "=",
+        "students_biodata.stdno"
+      )
+      .select(
+        "lecture_members.id",
+        "lecture_members.date",
+        "lecture_members.lecture_id",
+        "lecture_members.is_class_rep",
+        "lecture_members.status",
+        "lecture_members.joined_at",
+        "lecture_members.rating",
+        "users.role",
+        "users.userfull_name",
+        "users.stu_no",
+        "students_biodata.progcode"
+      )
+      .orderBy("lecture_members.joined_at")
+      .where({
+        lecture_id: lecture.course_unit_id,
+        date: lecture.date,
+        // member_id: stu_id,
+      });
+
+    const data = await database("stu_selected_course_units")
+      .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
+
+      .leftJoin(
+        "students_biodata",
+        "stu_selected_course_units.stu_id",
+        "=",
+        "students_biodata.stdno"
+      )
+
+      .select(
+        "stu_selected_course_units.c_id",
+        "stu_selected_course_units.stu_id",
+        // "lecture_members.is_class_rep",
+        "students_biodata.progcode",
+        "users.userfull_name",
+        "users.role"
+      )
+
+      .where({
+        course_id: lecture.course_unit_id,
+      });
+
+    const fetch_1 = async () => {
+      const classReps = await database("class_reps").select("*").where({
+        for_wc_cu: lecture.course_unit_id,
+      });
+
+      const result = data.map((enrolledStu) => {
+        const itemA = classReps.find(
+          (cr) => enrolledStu.stu_id === cr.class_rep_id
+        );
+        if (itemA) {
+          return { ...enrolledStu, is_class_rep: 1 };
+        }
+        return enrolledStu;
+      });
+
+      return result;
+    };
+
+    const result = await fetch_1();
+
+    attendedLectures.push({ ...lecture, members, enrolledStudents: result });
+
+    return attendedLectures;
+  });
+
+  Promise.all([...x, ...f]).then(() => {
+    // console.log("Attended lectures", attendedLectures);
+    const attendedLectureIds = attended.map((attendedLecture) => ({
+      tt_id: attendedLecture.l_tt_id,
+      date: attendedLecture.date,
+    }));
+
+    const missed = allLectures.filter((lecture) => {
+      return !attendedLectureIds.some((attendedLecture) => {
+        // console.log(
+        //   "comparison",
+        //   `${attendedLecture.tt_id} ${new Date(
+        //     attendedLecture.date
+        //   ).toDateString()}, ${new Date(lecture.date).toDateString()}`
+        // );
+        return (
+          attendedLecture.tt_id === lecture.tt_id &&
+          new Date(attendedLecture.date).toDateString() ===
+            new Date(lecture.date).toDateString()
+        );
+      });
+    });
+    res.send({
+      attended: attendedLectures,
+      // allLectures: allLectures.length,
+      missedLectures: missed,
+    });
+  });
+  //console.log(req.body);
+});
+
 module.exports = router;

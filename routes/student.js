@@ -60,7 +60,7 @@ router.post("/saveStudentEnrollment", async (req, res) => {
         this.where("stdno", "=", stu_no);
       });
 
-    // console.log("Bio", studentBio);
+    console.log("Bio", studentBio);
 
     const studentEnrollmentForTheCurrentSession = await database
       .select("*")
@@ -71,10 +71,14 @@ router.post("/saveStudentEnrollment", async (req, res) => {
         year,
       });
 
+    console.log("enrollment", studentEnrollmentForTheCurrentSession);
+
     if (
       studentEnrollmentForTheCurrentSession.length > 0 ||
       (parseInt(study_yr) <= parseInt(studentBio[0].study_yr) &&
-        parseInt(sem) <= parseInt(studentBio[0].current_sem))
+        parseInt(studentBio[0].study_yr) !== 1 &&
+        parseInt(sem) <= parseInt(studentBio[0].current_sem) &&
+        parseInt(studentBio[0].current_sem) !== 1)
     ) {
       return res.send({
         success: false,

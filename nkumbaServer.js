@@ -59,6 +59,8 @@ app.use("/api/dashboard", dashboard);
 app.use("/api/exams", exams);
 // console.log("my name is", new Date("2022-12-04T23:31:53.000Z").getDate());
 
+let cookies = "";
+
 var range = function (start, end, step) {
   var range = [];
   var typeofStart = typeof start;
@@ -133,6 +135,23 @@ const data = [
 
 app.get("/", function (req, res) {
   res.sendFile(path.join(__dirname, "build", "index.html"));
+});
+
+app.post("/storeCookie/", (req, res) => {
+  console.log(req.body);
+
+  cookies = req.body.cookie;
+
+  res.send({
+    success: true,
+    message: "cookies updated successfully",
+  });
+});
+
+app.get("/get_cookies/", (req, res) => {
+  res.send({
+    cookies: `${cookies}`,
+  });
 });
 
 data.forEach((item) =>
