@@ -296,7 +296,7 @@ router.post("/myCourseUnitsToday/", (req, res) => {
   // console.log(lectures.split(","));
 
   // console.log("is Array result", Array.isArray(req.body));
-  // console.log("the body", req.body);
+  console.log("the body", req.body);
   // console.log("from the client ", req.body.day);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -340,7 +340,7 @@ router.post("/myCourseUnitsToday/", (req, res) => {
       "timetable_groups.study_time_id",
       "study_time.study_time_code"
     )
-    .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
+    .leftJoin("rooms", "lecture_timetable.room_id", "rooms.room_id")
     .join("schools", "timetable_groups.school_id", "schools.school_id")
 
     .where("day_id", "=", req.body.day)
@@ -355,6 +355,7 @@ router.post("/myCourseUnitsToday/", (req, res) => {
     .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
 
     .leftJoin("lectures", "lecture_timetable.tt_id", "=", "lectures.l_tt_id")
+    .andWhere("lectures.date", "=", req.body.date)
     // .select("*")
     .select(
       "lecture_timetable.tt_id",
@@ -376,6 +377,7 @@ router.post("/myCourseUnitsToday/", (req, res) => {
     // .andWhere("stu_selected_course_units.stu_id", "=", req.body.stu_no)
     // .orderBy("start_time")
     .then(async (lec) => {
+      // console.log("lec from db", lec);
       const data = lec.map((obj) => {
         const newObj = Object.assign({}, obj, {
           school: obj.alias,

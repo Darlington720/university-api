@@ -359,6 +359,7 @@ router.get("/getEnrolledStudents/:course_id", (req, res) => {
       "users.userfull_name",
       "users.role"
     )
+    .orderBy("users.userfull_name")
     // .select("*")
     // .select(
     //   "lecture_members.id",

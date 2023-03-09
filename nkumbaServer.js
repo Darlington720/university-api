@@ -1347,7 +1347,7 @@ io.on("connection", (socket) => {
           date
         );
         //console.log("THe lecture", lecture);
-        console.log("members", membersInLecture);
+        // console.log("members", membersInLecture);
         membersInLecture.map((m) => {
           // if (m.is_class_rep) {
           io.in(`${room}`).emit("lectureHasStartedFromServer", {
