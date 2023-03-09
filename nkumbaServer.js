@@ -488,12 +488,44 @@ app.post("/api/sendNotificationsToEnrolledStudents", async (req, res) => {
   const { lecture_id, date } = req.body;
   //console.log(req.params);
 
-  const enrolledStudents = await database("stu_selected_course_units")
+  const data = await database("stu_selected_course_units")
     .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
-    .where({
-      course_id: lecture_id,
-    })
+    // .where({
+    //   course_id: lecture_id.includes("-")
+    //     ? lecture_id
+    //     : lecture_id ||
+    //       `${lecture_id}-DAY` ||
+    //       `${lecture_id}-WEEKEND` ||
+    //       `${lecture_id}-DISTANCE`,
+    // })
     .select("*");
+
+  let enrolledStudents = [];
+
+  data.map((cu) => {
+    if (lecture_id.includes("-")) {
+      // we need the students for the specific study time
+      if (lecture_id === cu.course_id) {
+        enrolledStudents.push(cu);
+      }
+    } else {
+      if (cu.course_id.includes("-")) {
+        // console.log("Contains the dash", data.course_id);
+        let char_index = cu.course_id.lastIndexOf("-");
+        let trimmedStr = cu.course_id.slice(0, char_index);
+        // console.log("The rimmed version ---- ", trimmedStr);
+        if (lecture_id === trimmedStr) {
+          enrolledStudents.push(cu);
+        }
+      } else {
+        if (lecture_id === cu.course_id) {
+          enrolledStudents.push(cu);
+        }
+      }
+
+      // console.log("trimmed???", trimmedStr);
+    }
+  });
 
   const lectureDetails = await getLectureDetails(req.body, date);
 
@@ -515,12 +547,16 @@ app.post("/api/sendNotificationsToEnrolledStudents", async (req, res) => {
 
   console.log("THe push tokens", pushTokens);
 
-  sendMultiplePushNotifications(
-    pushTokens,
-    enrolledStudents[0].course_name,
-    `The lecture has started`,
-    { ...lectureDetails[0], navigateTo: "todaysLectures" }
-  );
+  if (enrolledStudents.length > 0) {
+    sendMultiplePushNotifications(
+      pushTokens,
+      enrolledStudents[0].course_name,
+      `The lecture has started`,
+      { ...lectureDetails[0], navigateTo: "todaysLectures" }
+    );
+  }
+
+  res.send("success");
 });
 
 app.get("/api/currentUniversitySession", async (req, res) => {
@@ -731,39 +767,95 @@ io.on("connection", (socket) => {
 
               // res.send(finalArr);
               //send notifications
-              database("stu_selected_course_units")
-                .join(
-                  "users",
-                  "stu_selected_course_units.stu_id",
-                  "=",
-                  "users.stu_no"
-                )
-                .select("*")
 
-                .where({
-                  course_id: msg.course_unit_id,
-                })
-                .then((stuData) => {
-                  // console.log("Enrolled students here", stuData);
-                  let c_data = [];
-                  stuData.forEach((student) => {
-                    if (student.token) {
-                      sendPushNotifications(
-                        `${student.token}`,
-                        `The lecture has ended, Would you wish to rate this lecture?`,
-                        `${student.course_name}`,
-                        {
-                          ...finalArr[0],
-                          navigateTo: "lectureDetails",
-                          endLecture: true,
-                        }
-                      );
-                    }
-                    // });
+              if (msg.course_unit_id.includes("-")) {
+                database("stu_selected_course_units")
+                  .join(
+                    "users",
+                    "stu_selected_course_units.stu_id",
+                    "=",
+                    "users.stu_no"
+                  )
+                  .select("*")
+
+                  .where({
+                    course_id: msg.course_unit_id,
+                  })
+                  .then((stuData) => {
+                    // console.log("Enrolled students here", stuData);
+                    let c_data = [];
+                    stuData.forEach((student) => {
+                      if (student.token) {
+                        sendPushNotifications(
+                          `${student.token}`,
+                          `The lecture has ended, Would you wish to rate this lecture?`,
+                          `${student.course_name}`,
+                          {
+                            ...finalArr[0],
+                            navigateTo: "lectureDetails",
+                            endLecture: true,
+                          }
+                        );
+                      }
+                      // });
+                    });
+
+                    //res.send(data);
                   });
+              } else {
+                database("stu_selected_course_units")
+                  .join(
+                    "users",
+                    "stu_selected_course_units.stu_id",
+                    "=",
+                    "users.stu_no"
+                  )
+                  .select("*")
 
-                  //res.send(data);
-                });
+                  // .where({
+                  //   course_id: msg.course_unit_id,
+                  // })
+                  .then((data) => {
+                    // console.log("Enrolled students here", stuData);
+                    let stuData = [];
+                    data.map((cu) => {
+                      if (cu.course_id.includes("-")) {
+                        // console.log("Contains the dash", student.course_id);
+                        let char_index = cu.course_id.lastIndexOf("-");
+                        let trimmedStr = cu.course_id.slice(0, char_index);
+                        // console.log("The rimmed version ---- ", trimmedStr);
+                        if (msg.course_unit_id === trimmedStr) {
+                          stuData.push(cu);
+                        }
+                      } else {
+                        if (msg.course_unit_id === cu.course_id) {
+                          stuData.push(cu);
+                        }
+                      }
+
+                      // console.log("trimmed???", trimmedStr);
+                    });
+
+                    let c_data = [];
+                    stuData.forEach((student) => {
+                      if (student.token) {
+                        sendPushNotifications(
+                          `${student.token}`,
+                          `The lecture has ended, Would you wish to rate this lecture?`,
+                          `${student.course_name}`,
+                          {
+                            ...finalArr[0],
+                            navigateTo: "lectureDetails",
+                            endLecture: true,
+                          }
+                        );
+                      }
+                      // });
+                    });
+
+                    //res.send(data);
+                  });
+              }
             });
           });
       })
@@ -878,7 +970,7 @@ io.on("connection", (socket) => {
   socket.on("addStudentToClass", (data) => {
     const d = new Date();
     const date = data.year + "-" + data.month + "-" + data.selectedDate;
-    // console.log(`Adding ${data.stu_no} to class ${data.course_id}`);
+    console.log(`Adding ${data.stu_no} to class ${data.course_id}`);
 
     database("students_biodata")
       .where(function () {
@@ -1255,7 +1347,7 @@ io.on("connection", (socket) => {
           date
         );
         //console.log("THe lecture", lecture);
-        // console.log("members", membersInLecture);
+        console.log("members", membersInLecture);
         membersInLecture.map((m) => {
           // if (m.is_class_rep) {
           io.in(`${room}`).emit("lectureHasStartedFromServer", {
@@ -1272,6 +1364,83 @@ io.on("connection", (socket) => {
         });
 
         io.in(`${room}`).emit("updatedMembersList", membersInLecture);
+
+        //send a push notification to the students
+        // const { lecture_id, date } = req.body;
+        //console.log(req.params);
+
+        const enrolledCUs = await database("stu_selected_course_units")
+          .join(
+            "users",
+            "stu_selected_course_units.stu_id",
+            "=",
+            "users.stu_no"
+          )
+          // .where({
+          //   course_id: lecture_id.includes("-")
+          //     ? lecture_id
+          //     : lecture_id ||
+          //       `${lecture_id}-DAY` ||
+          //       `${lecture_id}-WEEKEND` ||
+          //       `${lecture_id}-DISTANCE`,
+          // })
+          .select("*");
+
+        let enrolledStudents = [];
+
+        enrolledCUs.map((cu) => {
+          if (data.lecture_id.includes("-")) {
+            // we need the students for the specific study time
+            if (data.lecture_id === cu.course_id) {
+              enrolledStudents.push(cu);
+            }
+          } else {
+            if (cu.course_id.includes("-")) {
+              // console.log("Contains the dash", data.course_id);
+              let char_index = cu.course_id.lastIndexOf("-");
+              let trimmedStr = cu.course_id.slice(0, char_index);
+              // console.log("The rimmed version ---- ", trimmedStr);
+              if (data.lecture_id === trimmedStr) {
+                enrolledStudents.push(cu);
+              }
+            } else {
+              if (data.lecture_id === cu.course_id) {
+                enrolledStudents.push(cu);
+              }
+            }
+
+            // console.log("trimmed???", trimmedStr);
+          }
+        });
+
+        const lectureDetails = await getLectureDetails(data, date);
+
+        //console.log("All the enrolled students", enrolledStudents);
+
+        let pushTokens = [];
+
+        enrolledStudents.map((student) => {
+          if (student.token) {
+            pushTokens.push(student.token);
+            // sendPushNotifications(
+            //   `${student.token}`,
+            //   `The lecture has started`,
+            //   `${student.course_name}`,
+            //   { ...lectureDetails[0], navigateTo: "todaysLectures" }
+            // );
+          }
+        });
+
+        console.log("THe push tokens", pushTokens);
+
+        if (enrolledStudents.length > 0) {
+          sendMultiplePushNotifications(
+            pushTokens,
+            enrolledStudents[0].course_name,
+            `The lecture has started`,
+            { ...lectureDetails[0], navigateTo: "todaysLectures" }
+          );
+        }
 
         //console.log("lecture details", lectureDetails);
       });
@@ -1486,20 +1655,25 @@ async function updateLectureMembers(data, data2, members, date) {
 
   await Promise.all(members.map(updateMembers));
 
-  if (data.lectureMode !== 1) return;
-  let memberData = await database("lecture_members")
-    .where({ member_id: data.stu_no, lecture_id: data.lecture_id, date: date })
-    .first();
-  if (!memberData) {
-    await addMember(
-      data.stu_no,
-      data.day_id,
-      date,
-      data.lecture_id,
-      1,
-      1,
-      new Date().toLocaleTimeString()
-    );
+  if (data.lectureMode == 1) {
+    let memberData = await database("lecture_members")
+      .where({
+        member_id: data.stu_no,
+        lecture_id: data.lecture_id,
+        date: date,
+      })
+      .first();
+    if (!memberData) {
+      await addMember(
+        data.stu_no,
+        data.day_id,
+        date,
+        data.lecture_id,
+        1,
+        1,
+        new Date().toLocaleTimeString()
+      );
+    }
   }
   const updatedMembersList = await database("lecture_members")
     .join("users", "lecture_members.member_id", "=", "users.stu_no")

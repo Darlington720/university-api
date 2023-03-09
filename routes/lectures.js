@@ -352,6 +352,7 @@ router.get("/getEnrolledStudents/:course_id", (req, res) => {
     // )
     .select(
       "stu_selected_course_units.c_id",
+      "stu_selected_course_units.course_id",
       "stu_selected_course_units.stu_id",
       // "lecture_members.is_class_rep",
       "students_biodata.progcode",
@@ -373,11 +374,39 @@ router.get("/getEnrolledStudents/:course_id", (req, res) => {
     //   "students_biodata.progcode"
     // )
 
-    .where({
-      course_id,
-    })
-    .then(async (data) => {
-      //console.log("Enrolled students here", data);
+    // .where({
+    //   course_id,
+    // })
+    .then(async (enrolledStudents) => {
+      console.log("course id", course_id);
+      let data = [];
+
+      enrolledStudents.map((student) => {
+        if (course_id.includes("-")) {
+          // we need the students for the specific study time
+          if (course_id === student.course_id) {
+            data.push(student);
+          }
+        } else {
+          if (student.course_id.includes("-")) {
+            // console.log("Contains the dash", student.course_id);
+            let char_index = student.course_id.lastIndexOf("-");
+            let trimmedStr = student.course_id.slice(0, char_index);
+            // console.log("The rimmed version ---- ", trimmedStr);
+            if (course_id === trimmedStr) {
+              data.push(student);
+            }
+          } else {
+            if (course_id === student.course_id) {
+              data.push(student);
+            }
+          }
+
+          // console.log("trimmed???", trimmedStr);
+        }
+      });
+
+      // console.log("THe resulting data", data);
 
       const fetch_1 = async () => {
         const classReps = await database("class_reps").select("*").where({
@@ -441,116 +470,148 @@ router.post("/updateClassRepInfo", (req, res) => {
   const { id, stu_no, course_id } = req.body;
   //console.log(req.body);
 
-  database("stu_selected_course_units")
-    .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
+  // database("stu_selected_course_units")
+  //   .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
+  //   .select("*")
+
+  //   .where({
+  //     course_id,
+  //   })
+  //   .then((enrolledStudents) => {
+  //console.log("Enrolled students here", data);
+  database
     .select("*")
-
-    .where({
-      course_id,
-    })
-    .then((enrolledStudents) => {
-      //console.log("Enrolled students here", data);
-      database
-        .select("*")
-        .from("class_reps")
-        // .join(
-        //   "class_reps",
-        //   "users.stu_no",
-        //   "=",
-        //   "class_reps.class_rep_id"
-        // )
-        // .where({
-        //   // day_id: 1,
-        //   for_wc_cu: lecture.c_unit_id,
-        // })
-        .where("class_reps.for_wc_cu", "=", course_id)
-        // .where({
-        //   // day_id: 1,
-        //   is_class_rep: 1,
-        //   for_wc_cu: course_id,
-        // })
-        .then((classReps) => {
-          if (classReps.length < 3) {
-            database("users")
+    .from("class_reps")
+    // .join(
+    //   "class_reps",
+    //   "users.stu_no",
+    //   "=",
+    //   "class_reps.class_rep_id"
+    // )
+    // .where({
+    //   // day_id: 1,
+    //   for_wc_cu: lecture.c_unit_id,
+    // })
+    .where("class_reps.for_wc_cu", "=", course_id)
+    // .where({
+    //   // day_id: 1,
+    //   is_class_rep: 1,
+    //   for_wc_cu: course_id,
+    // })
+    .then((classReps) => {
+      if (classReps.length < 5) {
+        // database("users")
+        //   .where(function () {
+        //     this.where("stu_no", "=", stu_no);
+        //   })
+        //   .update({
+        //     is_class_rep: 1,
+        //   })
+        //   .then((data) => {
+        // res.send("Success");
+        database("class_reps")
+          .insert({
+            class_rep_id: stu_no,
+            for_wc_cu: course_id,
+          })
+          .then(async (result) => {
+            // console.log("Result from ")
+            await database("stu_selected_course_units")
+              .join(
+                "users",
+                "stu_selected_course_units.stu_id",
+                "=",
+                "users.stu_no"
+              )
               .where(function () {
-                this.where("stu_no", "=", stu_no);
+                this.where("users.stu_no", "=", stu_no);
               })
-              .update({
-                is_class_rep: 1,
-              })
-              .then((data) => {
-                // res.send("Success");
-                database("class_reps")
-                  .insert({
-                    class_rep_id: stu_no,
-                    for_wc_cu: course_id,
-                  })
-                  .then((result) => {
-                    // console.log("Result from ")
-                    database("stu_selected_course_units")
-                      .join(
-                        "users",
-                        "stu_selected_course_units.stu_id",
-                        "=",
-                        "users.stu_no"
-                      )
-                      .where(function () {
-                        this.where("users.stu_no", "=", stu_no);
-                      })
-                      .andWhere(function () {
-                        this.where(
-                          "stu_selected_course_units.course_id",
-                          "=",
-                          course_id
-                        );
-                      })
-                      .then((student) => {
-                        // console.log("The student ", student);
-                        sendPushNotifications(
-                          `${student[0].token}`,
-                          `You have successfully been made the class rep of this unit!!!`,
-                          `${student[0].course_name}`,
-                          {
-                            navigateTo: "todaysLectures",
-                            endLecture: true,
-                          }
-                        );
-                      });
-                    res.send("Success");
-                  });
-              })
-              // database("users")
-              //   .where(function () {
-              //     this.where("stu_no", "=", stu_no);
-              //   })
-              //   .update({
-              //     is_class_rep: 1,
-              //     for_wc_cu: course_id,
-              //   })
-              //   .then((data) => {
-              //     res.send("Success");
-              //   })
-              .catch(
-                (err) => {
-                  console.log("error", err);
-                }
-                // res.send(err)
-              );
-          } else {
-            // res.send(
-            //   `Maximum number of class Reps reached ${classReps.length}`
-            // );
+              // .andWhere(function () {
+              //   this.where(
+              //     "stu_selected_course_units.course_id",
+              //     "=",
+              //     course_id
+              //   );
+              // })
+              .then((enrolledCourseUnits) => {
+                // console.log("The student ", student);
 
-            return res.status(200).json({
-              error: `Maximum number of class Reps reached ${classReps.length}`,
-            });
-            // return res
-            //   .status(400)
-            //   .send(`Maximum number of class Reps reached ${classReps.length}`);
-          }
+                let student = [];
+
+                enrolledCourseUnits.map((cu) => {
+                  if (course_id.includes("-")) {
+                    // we need the students for the specific study time
+                    if (course_id === cu.course_id) {
+                      student.push(cu);
+                    }
+                  } else {
+                    if (cu.course_id.includes("-")) {
+                      // console.log("Contains the dash", student.course_id);
+                      let char_index = cu.course_id.lastIndexOf("-");
+                      let trimmedStr = cu.course_id.slice(0, char_index);
+                      // console.log("The rimmed version ---- ", trimmedStr);
+                      if (course_id === trimmedStr) {
+                        student.push(cu);
+                      }
+                    } else {
+                      if (course_id === cu.course_id) {
+                        student.push(cu);
+                      }
+                    }
+
+                    // console.log("trimmed???", trimmedStr);
+                  }
+                });
+
+                // console.log("resulting student", student);
+
+                if (student[0].token) {
+                  sendPushNotifications(
+                    `${student[0].token}`,
+                    `You have successfully been made the class rep of this unit!!!`,
+                    `${student[0].course_name}`,
+                    {
+                      navigateTo: "todaysLectures",
+                      endLecture: true,
+                    }
+                  );
+                }
+              });
+            res.send("Success");
+          })
+          // })
+          // database("users")
+          //   .where(function () {
+          //     this.where("stu_no", "=", stu_no);
+          //   })
+          //   .update({
+          //     is_class_rep: 1,
+          //     for_wc_cu: course_id,
+          //   })
+          //   .then((data) => {
+          //     res.send("Success");
+          //   })
+          .catch(
+            (err) => {
+              console.log("error", err);
+            }
+            // res.send(err)
+          );
+      } else {
+        // res.send(
+        //   `Maximum number of class Reps reached ${classReps.length}`
+        // );
+
+        return res.status(200).json({
+          error: `Maximum number of class Reps reached ${classReps.length}`,
         });
+        // return res
+        //   .status(400)
+        //   .send(`Maximum number of class Reps reached ${classReps.length}`);
+      }
     });
 });
+// });
 
 router.get("/getClassRepInfo/:course_id", (req, res) => {
   const { course_id } = req.params;
@@ -568,6 +629,7 @@ router.get("/getClassRepInfo/:course_id", (req, res) => {
     )
     .select(
       "stu_selected_course_units.c_id",
+      "stu_selected_course_units.course_id",
       "stu_selected_course_units.stu_id",
       // "lecture_members.is_class_rep",
       "students_biodata.progcode",
@@ -575,11 +637,38 @@ router.get("/getClassRepInfo/:course_id", (req, res) => {
       "users.stu_no",
       "users.role"
     )
-    .where({
-      course_id,
-    })
-    .then((data) => {
+    // .where({
+    //   course_id,
+    // })
+    .then((enrolledCourseUnits) => {
       //console.log("Enrolled students here", data);
+
+      let data = [];
+
+      enrolledCourseUnits.map((cu) => {
+        if (course_id.includes("-")) {
+          // we need the students for the specific study time
+          if (course_id === cu.course_id) {
+            data.push(cu);
+          }
+        } else {
+          if (cu.course_id.includes("-")) {
+            // console.log("Contains the dash", data.course_id);
+            let char_index = cu.course_id.lastIndexOf("-");
+            let trimmedStr = cu.course_id.slice(0, char_index);
+            // console.log("The rimmed version ---- ", trimmedStr);
+            if (course_id === trimmedStr) {
+              data.push(cu);
+            }
+          } else {
+            if (course_id === cu.course_id) {
+              data.push(cu);
+            }
+          }
+
+          // console.log("trimmed???", trimmedStr);
+        }
+      });
 
       database("class_reps")
         .join("users", "class_reps.class_rep_id", "=", "users.stu_no")
@@ -784,7 +873,7 @@ router.post("/lectureHasEnded", (req, res) => {
 //watch out for this one: checking to see if the student is subscribed for the given lecture
 router.post("/checkStudentSubscription/", async (req, res) => {
   const { course_id, stu_id, date } = req.body;
-  //console.log(req.body);
+  console.log(req.body);
   const d = new Date();
   // const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 
@@ -820,13 +909,45 @@ router.post("/checkStudentSubscription/", async (req, res) => {
   }
 
   if (data[0].has_started) {
-    const enrolledStudent = await database("stu_selected_course_units")
-      .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
-      .select("*")
-      .where({
-        course_id,
-        stu_id,
+    let enrolledStudent = [];
+
+    if (course_id.includes("-")) {
+      enrolledStudent = await database("stu_selected_course_units")
+        .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
+        .select("*")
+        .where({
+          // course_id,
+          stu_id,
+        });
+    } else {
+      const enrolledStudentCourseUnits = await database(
+        "stu_selected_course_units"
+      )
+        .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
+        .select("*")
+        .where({
+          // course_id,
+          stu_id,
+        });
+
+      enrolledStudentCourseUnits.map((cu) => {
+        if (cu.course_id.includes("-")) {
+          // console.log("Contains the dash", student.course_id);
+          let char_index = cu.course_id.lastIndexOf("-");
+          let trimmedStr = cu.course_id.slice(0, char_index);
+          // console.log("The rimmed version ---- ", trimmedStr);
+          if (course_id === trimmedStr) {
+            enrolledStudent.push(cu);
+          }
+        } else {
+          if (course_id === cu.course_id) {
+            enrolledStudent.push(cu);
+          }
+        }
+
+        // console.log("trimmed???", trimmedStr);
       });
+    }
 
     if (enrolledStudent.length == 0) {
       //student with stdno is not enrolled

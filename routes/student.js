@@ -60,7 +60,7 @@ router.post("/saveStudentEnrollment", async (req, res) => {
         this.where("stdno", "=", stu_no);
       });
 
-    console.log("Bio", studentBio);
+    // console.log("Bio", studentBio);
 
     const studentEnrollmentForTheCurrentSession = await database
       .select("*")
@@ -71,7 +71,7 @@ router.post("/saveStudentEnrollment", async (req, res) => {
         year,
       });
 
-    console.log("enrollment", studentEnrollmentForTheCurrentSession);
+    // console.log("enrollment", studentEnrollmentForTheCurrentSession);
 
     if (
       studentEnrollmentForTheCurrentSession.length > 0 ||
@@ -296,7 +296,7 @@ router.post("/myCourseUnitsToday/", (req, res) => {
   // console.log(lectures.split(","));
 
   // console.log("is Array result", Array.isArray(req.body));
-  //console.log("the body", req.body);
+  // console.log("the body", req.body);
   // console.log("from the client ", req.body.day);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -346,12 +346,12 @@ router.post("/myCourseUnitsToday/", (req, res) => {
     .where("day_id", "=", req.body.day)
     .andWhere("schools.alias", "=", req.body.school)
     // .andWhere("study_time.study_time_name", "=", req.body.study_time)
-    .join(
-      "stu_selected_course_units",
-      "lecture_timetable.c_unit_id",
-      "=",
-      "stu_selected_course_units.course_id"
-    )
+    // .join(
+    //   "stu_selected_course_units",
+    //   "lecture_timetable.c_unit_id",
+    //   "=",
+    //   "stu_selected_course_units.course_id"
+    // )
     .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
 
     .leftJoin("lectures", "lecture_timetable.tt_id", "=", "lectures.l_tt_id")
@@ -369,11 +369,11 @@ router.post("/myCourseUnitsToday/", (req, res) => {
       "schools.school_id",
       "study_time.study_time_name",
       "staff.*",
-      "stu_selected_course_units.*",
+      // "stu_selected_course_units.*",
       "lectures.*"
     )
     // .where("lectures.date", "=", req.body.date)
-    .andWhere("stu_selected_course_units.stu_id", "=", req.body.stu_no)
+    // .andWhere("stu_selected_course_units.stu_id", "=", req.body.stu_no)
     // .orderBy("start_time")
     .then(async (lec) => {
       const data = lec.map((obj) => {
@@ -391,36 +391,79 @@ router.post("/myCourseUnitsToday/", (req, res) => {
       // console.log("The lectures", data);
 
       data.map((item) => {
+        // console.log("THe item", item);
         JSON.parse(req.body.myArray).map((reqItem, index) => {
-          if (item.c_unit_id == reqItem) {
-            var m2 = moment(
-              `${req.body.date} ${item.end_time}`,
-              "YYYY-MM--DD h:mmA"
-            );
+          let trimmedStr;
+          if (reqItem.includes("-")) {
+            // console.log("Req item", reqItem);
+            let char_index = reqItem.lastIndexOf("-");
+            trimmedStr = reqItem.slice(0, char_index);
+            // console.log("trimmed???", trimmedStr);
+          } else {
+            // console.log("Reqitemwithout ", reqItem);
+          }
 
-            var moment2 = moment(
-              `${req.body.date} ${item.end_time}`,
-              "YYYY-MM--DD"
-            );
-            if (moment.duration(moment2.diff(moment1))._data.days > 0) {
-              // console.log(moment.duration(moment2.diff(moment1))._data.days);
-              // console.log("Lecture is not supposed to be taught now");
-              newArr.push({ ...item, status: "not now" });
-              // console.log({ ...item, status: "not now" });
-            } else {
-              if (m1.isBefore(m2)) {
-                // console.log({ ...item, status: "on" });
-                newArr.push({ ...item, status: "on" });
-                // console.log("Lecture is still on");
+          if (trimmedStr) {
+            if (item.c_unit_id == reqItem || item.c_unit_id == trimmedStr) {
+              var m2 = moment(
+                `${req.body.date} ${item.end_time}`,
+                "YYYY-MM--DD h:mmA"
+              );
+
+              var moment2 = moment(
+                `${req.body.date} ${item.end_time}`,
+                "YYYY-MM--DD"
+              );
+              if (moment.duration(moment2.diff(moment1))._data.days > 0) {
+                // console.log(moment.duration(moment2.diff(moment1))._data.days);
+                // console.log("Lecture is not supposed to be taught now");
+                newArr.push({ ...item, status: "not now" });
+                // console.log({ ...item, status: "not now" });
               } else {
-                // console.log({ ...item, status: "off" });
-                newArr.push({ ...item, status: "off" });
-                // console.log("Lecture is supposed to have ended");
+                if (m1.isBefore(m2)) {
+                  // console.log({ ...item, status: "on" });
+                  newArr.push({ ...item, status: "on" });
+                  // console.log("Lecture is still on");
+                } else {
+                  // console.log({ ...item, status: "off" });
+                  newArr.push({ ...item, status: "off" });
+                  // console.log("Lecture is supposed to have ended");
+                }
+              }
+            }
+          } else {
+            if (item.c_unit_id == reqItem) {
+              var m2 = moment(
+                `${req.body.date} ${item.end_time}`,
+                "YYYY-MM--DD h:mmA"
+              );
+
+              var moment2 = moment(
+                `${req.body.date} ${item.end_time}`,
+                "YYYY-MM--DD"
+              );
+              if (moment.duration(moment2.diff(moment1))._data.days > 0) {
+                // console.log(moment.duration(moment2.diff(moment1))._data.days);
+                // console.log("Lecture is not supposed to be taught now");
+                newArr.push({ ...item, status: "not now" });
+                // console.log({ ...item, status: "not now" });
+              } else {
+                if (m1.isBefore(m2)) {
+                  // console.log({ ...item, status: "on" });
+                  newArr.push({ ...item, status: "on" });
+                  // console.log("Lecture is still on");
+                } else {
+                  // console.log({ ...item, status: "off" });
+                  newArr.push({ ...item, status: "off" });
+                  // console.log("Lecture is supposed to have ended");
+                }
               }
             }
           }
         });
       });
+
+      // console.log("New array so far", newArr);
 
       const fetch_1 = async () => {
         const data10 = await database
