@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+var knex = require("knex");
 const moment = require("moment");
 const { database, baseIp, port } = require("../config");
 
@@ -354,8 +355,15 @@ router.post("/myCourseUnitsToday/", (req, res) => {
     // )
     .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
 
-    .leftJoin("lectures", "lecture_timetable.tt_id", "=", "lectures.l_tt_id")
-    .andWhere("lectures.date", "=", req.body.date)
+    // .leftJoin("lectures", "lecture_timetable.tt_id", "=", "lectures.l_tt_id")
+    .leftJoin("lectures", function () {
+      this.on("lecture_timetable.tt_id", "=", "lectures.l_tt_id").andOn(
+        "lectures.date",
+        "=",
+        database.raw("?", [req.body.date])
+      );
+    })
+    // .andWhere("lectures.date", "=", req.body.date)
     // .select("*")
     .select(
       "lecture_timetable.tt_id",
@@ -393,7 +401,7 @@ router.post("/myCourseUnitsToday/", (req, res) => {
       // console.log("The lectures", data);
 
       data.map((item) => {
-        // console.log("THe item", item);
+        console.log("THe item", item);
         JSON.parse(req.body.myArray).map((reqItem, index) => {
           let trimmedStr;
           if (reqItem.includes("-")) {

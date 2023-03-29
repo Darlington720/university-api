@@ -1,4 +1,5 @@
 const express = require("express");
+var knex = require("knex");
 const router = express.Router();
 const { database } = require("../config");
 const { sendPushNotifications } = require("../pushNotifications");
@@ -1032,7 +1033,26 @@ router.post("/checkStudentSubscription/", async (req, res) => {
 });
 
 router.post("/lectureInfo/", async (req, res) => {
-  const { startDate, endDate, school, campus, studyTime } = req.body;
+  const { startDate, endDate, school, campus } = req.body;
+
+  function getWeekNumber(date) {
+    const oneJan = new Date(date.getFullYear(), 0, 1);
+    const numberOfDays = Math.floor((date - oneJan) / (24 * 60 * 60 * 1000));
+    return Math.ceil((date.getDay() + 1 + numberOfDays) / 7);
+  }
+
+  function getDayName(dayNumber) {
+    const daysOfWeek = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    return daysOfWeek[dayNumber % 7];
+  }
 
   const d = new Date(startDate);
   const s_date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -1058,11 +1078,163 @@ router.post("/lectureInfo/", async (req, res) => {
   let currentDate = d;
 
   while (currentDate <= d1) {
+    // const utcDate = new Date(
+    //   Date.UTC(
+    //     currentDate.getFullYear(),
+    //     currentDate.getMonth(),
+    //     currentDate.getDate()
+    //   )
+    // );
+    // dateArray.push(utcDate);
+    // dateArray.push(new Date(currentDate));
     dateArray.push(new Date(currentDate));
     currentDate.setDate(currentDate.getDate() + 1);
   }
 
-  // console.log("THe date array", dateArray);
+  dateArray.sort((a, b) => a.getTime() - b.getTime());
+
+  console.log("THe date array", dateArray);
+
+  let x_axis_values = [];
+  let attLecPerDate = [];
+  const chart = dateArray.map(async (d5) => {
+    const isoDate = d5.toISOString();
+    const dateOnly = isoDate.slice(0, 10);
+
+    const d6 = new Date(isoDate);
+    const d_date =
+      d6.getFullYear() + "-" + (d6.getMonth() + 1) + "-" + d6.getDate();
+
+    // console.log("The date only", dateOnly);
+    x_axis_values.push(dateOnly);
+
+    database("lectures")
+      .join("lecture_timetable", "lectures.l_tt_id", "lecture_timetable.tt_id")
+      .join(
+        "timetable_groups",
+        "lecture_timetable.timetable_group_id",
+        "timetable_groups.tt_gr_id"
+      )
+      .join("schools", "timetable_groups.school_id", "schools.school_id")
+      .join("campus", "timetable_groups.campus", "campus.cam_id")
+      .join(
+        "lecture_sessions",
+        "lecture_timetable.session_id",
+        "lecture_sessions.ls_id "
+      )
+      .join(
+        "study_time",
+        "timetable_groups.study_time_id",
+        "study_time.study_time_code"
+      )
+      .leftJoin("rooms", "lecture_timetable.room_id", "rooms.room_id")
+
+      .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
+
+      .where("schools.alias", school)
+      .andWhere("date", d_date)
+      // .whereBetween("date", [s_date, e_date])
+      .andWhere("campus.campus_name", campus)
+      .select("*")
+      .then(async (result) => {
+        // const lpd = attendedLecturesPerDate.map((lecture) => ({
+        //   attended: lecture.length,
+        //   date: dateOnly,
+        // }));
+
+        const dayId = d5.getDay();
+
+        // console.log("Currently on date", `${date} ${dayId}`);
+
+        const lecturesForThatDay = await database("lecture_timetable")
+          .join(
+            "timetable_groups",
+            "lecture_timetable.timetable_group_id",
+            "timetable_groups.tt_gr_id"
+          )
+
+          .join("schools", "timetable_groups.school_id", "schools.school_id")
+          .join("campus", "timetable_groups.campus", "campus.cam_id")
+          .join(
+            "lecture_sessions",
+            "lecture_timetable.session_id",
+            "lecture_sessions.ls_id "
+          )
+          .join(
+            "study_time",
+            "timetable_groups.study_time_id",
+            "study_time.study_time_code"
+          )
+          .leftJoin("rooms", "lecture_timetable.room_id", "rooms.room_id")
+
+          .leftJoin(
+            "staff",
+            "lecture_timetable.lecturer_id",
+            "=",
+            "staff.staff_id"
+          )
+
+          .where("schools.alias", school)
+          .andWhere("day_id", dayId)
+          .andWhere("campus.campus_name", campus)
+          .select("*");
+
+        attLecPerDate.push({
+          date: dateOnly,
+          data: {
+            attended: result.length,
+            all_the_lectures: lecturesForThatDay.length,
+            missed: lecturesForThatDay.length - result.length,
+          },
+        });
+
+        // console.log("result", result.length);
+        // console.log("date", dateOnly);
+      });
+  });
+
+  console.log("x-axis", x_axis_values);
+
+  const start_date = new Date(startDate);
+  const end_date = new Date(endDate);
+  end_date.setDate(end_date.getDate() + 1);
+
+  console.log("The start date", start_date.toDateString());
+  console.log("the end date", end_date.toDateString());
+
+  // get the start and end days of the week for the given dates
+  const start_week = getWeekNumber(start_date);
+  const end_week = getWeekNumber(end_date);
+
+  console.log("start week", getWeekNumber(start_date));
+  console.log("end week", getWeekNumber(end_date));
+
+  const days = [];
+
+  x_axis_values.map((date) => {
+    const day = new Date(date).getUTCDay();
+    days.push(day);
+  });
+
+  console.log("the days ", days);
+
+  // first let me get all the lecturers in a given school and campus from the timetable
+  // const lecturers = await database("lecture_timetable")
+  //   .join(
+  //     "timetable_groups",
+  //     "lecture_timetable.timetable_group_id",
+  //     "timetable_groups.tt_gr_id"
+  //   )
+
+  //   .join("schools", "timetable_groups.school_id", "schools.school_id")
+  //   .join("campus", "timetable_groups.campus", "campus.cam_id")
+  //   .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
+  //   .distinct("lecturer_id", "staff.*")
+  //   .where("schools.alias", school)
+  //   .andWhere("campus.campus_name", campus)
+  //   .select();
+
+  // console.log("the awaited result", lecturers);
 
   //first considering one day
   const attended = await database("lectures")
@@ -1127,31 +1299,6 @@ router.post("/lectureInfo/", async (req, res) => {
       .andWhere("day_id", dayId)
       .andWhere("campus.campus_name", campus)
       .select("*");
-
-    // const lecturesForThatDay = await database("lecture_timetable")
-    //   .join(
-    //     "timetable_groups",
-    //     "lecture_timetable.timetable_group_id",
-    //     "timetable_groups.tt_gr_id"
-    //   )
-    //   .join("schools", "timetable_groups.school_id", "schools.school_id")
-    //   .join("campus", "timetable_groups.campus", "campus.cam_id")
-    //   .join(
-    //     "lecture_sessions",
-    //     "lecture_timetable.session_id",
-    //     "lecture_sessions.ls_id "
-    //   )
-    //   .join(
-    //     "study_time",
-    //     "timetable_groups.study_time_id",
-    //     "study_time.study_time_code"
-    //   )
-    //   .join("rooms", "lecture_timetable.room_id", "rooms.room_id")
-    //   .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
-    //   .where("schools.alias", school)
-    //   .andWhere("day_id", dayId)
-    //   .andWhere("campus.campus_name", campus)
-    //   .select("*");
 
     const lecturesWithDate = lecturesForThatDay.map((lecture) => ({
       ...lecture,
@@ -1244,8 +1391,12 @@ router.post("/lectureInfo/", async (req, res) => {
     return attendedLectures;
   });
 
-  Promise.all([...x, ...f]).then(() => {
-    // console.log("Attended lectures", attendedLectures);
+  Promise.all([...x, ...f, ...chart]).then(() => {
+    // console.log("all lectures", allLectures);
+
+    // console.log("The data we have so far ", attLecPerDate);
+
+    // allLectures.sort((a, b) => new Date(a.date) - new Date(b.date));
     const attendedLectureIds = attended.map((attendedLecture) => ({
       tt_id: attendedLecture.l_tt_id,
       date: attendedLecture.date,
@@ -1266,10 +1417,68 @@ router.post("/lectureInfo/", async (req, res) => {
         );
       });
     });
+
+    let attendedLecturesWithDay = [];
+    attendedLectures.map((lecture) => {
+      let day = getDayName(parseInt(lecture.day_id));
+      attendedLecturesWithDay.push({ ...lecture, day });
+    });
+    attendedLecturesWithDay.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    let missedLecturesWithDay = [];
+    missed.map((lecture) => {
+      let day = getDayName(parseInt(lecture.day_id));
+      missedLecturesWithDay.push({ ...lecture, day });
+    });
+
+    missedLecturesWithDay.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    const lecturesByLecturer = {};
+
+    attendedLecturesWithDay.forEach((lecture) => {
+      if (lecturesByLecturer[lecture.lecturer_id]) {
+        lecturesByLecturer[lecture.lecturer_id].attended.push(lecture);
+      } else {
+        lecturesByLecturer[lecture.lecturer_id] = {
+          attended: [lecture],
+          missed: [],
+        };
+      }
+    });
+
+    missedLecturesWithDay.forEach((lecture) => {
+      if (lecturesByLecturer[lecture.lecturer_id]) {
+        lecturesByLecturer[lecture.lecturer_id].missed.push(lecture);
+      } else {
+        lecturesByLecturer[lecture.lecturer_id] = {
+          attended: [],
+          missed: [lecture],
+        };
+      }
+    });
+
+    const results = [];
+
+    for (const [lecturerId, lectures] of Object.entries(lecturesByLecturer)) {
+      // console.log("lectures", lectures);
+      results.push({
+        lecturer_id: lecturerId,
+        lecturer_name: lectures.attended[0]
+          ? lectures.attended[0].staff_name
+          : lectures.missed[0].staff_name,
+        attended: lectures.attended,
+        missed: lectures.missed,
+      });
+    }
+
+    //generating figures per day
+
     res.send({
-      attended: attendedLectures,
+      attended: attendedLecturesWithDay,
       // allLectures: allLectures.length,
-      missedLectures: missed,
+      missedLectures: missedLecturesWithDay,
+      graphData: { xAxis: x_axis_values, details: attLecPerDate },
+      lecturers: results,
     });
   });
   //console.log(req.body);

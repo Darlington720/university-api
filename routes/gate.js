@@ -1,9 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const { database, baseIp, port } = require("../config");
+const authenticateSession = require("../middleware/authenticateSession");
 
 //new update of acquiring student entirely on tredumo
-router.get("/student/:studentNo", (req, res) => {
+router.get("/student/:studentNo", authenticateSession, (req, res) => {
   const { studentNo } = req.params;
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -324,7 +325,7 @@ router.get("/constraintList", async (req, res) => {
   res.send(constraints);
 });
 
-router.get("/staff/:staffNo", (req, res) => {
+router.get("/staff/:staffNo", authenticateSession, (req, res) => {
   const { staffNo } = req.params;
   const userId = 1;
   //console.log("staff number", staffNo);
@@ -644,7 +645,8 @@ router.post("/studentReg", (req, res) => {
 });
 
 router.post("/staffReg", (req, res) => {
-  const { staff_id, temp, signed_in_by, signed_in, signin_gate } = req.body;
+  const { staff_id, temp, signed_in_by, signed_in, signin_gate, gate_id } =
+    req.body;
   console.log("reg data", req.body);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -709,6 +711,7 @@ router.post("/staffReg", (req, res) => {
             temperature: temp,
             signin_date: date,
             signin_time: time,
+            gate_id,
             signed_in_by,
           })
           .then((data) => {
@@ -773,8 +776,9 @@ router.post("/staffReg", (req, res) => {
     });
 });
 
-router.post("/addVisitor", (req, res) => {
-  const { full_name, reason, office, signed_in_by, signin_gate } = req.body;
+router.post("/addVisitor", authenticateSession, (req, res) => {
+  const { full_name, reason, office, signed_in_by, signin_gate, gate_id } =
+    req.body;
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 
@@ -786,6 +790,7 @@ router.post("/addVisitor", (req, res) => {
       office,
       signed_in_by,
       date,
+      gate_id,
       signin_gate,
     })
     .then((data) => res.status(200).send("Received the data"))

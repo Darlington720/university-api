@@ -1,22 +1,78 @@
 const express = require("express");
 const router = express.Router();
+const crypto = require("crypto");
+const _ = require("lodash");
 const { database, baseIp, port } = require("../config");
+
+const authenticateSession = async (req, res, next) => {
+  const { sessionToken } = req.headers;
+
+  if (!sessionToken) {
+    return res.sendStatus(401);
+  }
+
+  //check to see if the session token is valid
+
+  try {
+    const active_token = await database
+      .select("*")
+      .from("active_user_session")
+      .where({
+        token: sessionToken,
+      });
+
+    if (active_token) {
+      next();
+    } else {
+      // Session token is invalid, return 401 Unauthorized
+      res.sendStatus(401);
+    }
+  } catch (error) {
+    return res.sendStatus(500);
+  }
+};
 
 router.post("/login", (req, res) => {
   const { username, password, token } = req.body;
   // console.log(req.body);
   database
     .select("*")
+    // .select(["-password", "-access_id", "-access_pwd", "-token"])
     .where({
       username: username,
       password: password,
     })
     .from("users")
-    .then(async (user) => {
+    .then(async (u) => {
       // console.log(user);
+      const user = u.map((row) =>
+        _.omit(row, ["password", "access_id", "access_pwd", "token"])
+      );
       if (!user[0]) {
         res.status(400).json({ error: "Invalid email or password" });
       } else {
+        // Generate new session token
+        const sessionToken = crypto.randomBytes(64).toString("hex");
+
+        // console.log("token generated", sessionToken);
+
+        //check if there are any existing tokens for this user and delete them
+        const user_tokens = await database
+          .select("*")
+          .from("active_user_session")
+          .where({
+            username: user[0].username,
+          })
+          .del();
+
+        // console.log("delete result", user_tokens);
+
+        //store the new user token
+        await database("active_user_session").insert({
+          username: user[0].username,
+          token: sessionToken,
+        });
+
         if (user[0].role == "Student") {
           const allSessions = await database
             .select("*")
@@ -76,18 +132,39 @@ router.post("/login", (req, res) => {
                     imageUrl: `http://${baseIp}:${port}/assets/${user[0].user_image}`,
                     enrollmentDetails: studentEnrollmentForTheCurrentSession[0],
                     studentCourseUnits: courseUnitsData,
+                    active_auth: sessionToken,
                   });
                 });
             });
         } else {
-          res.send({
-            ...user[0],
-            imageUrl: `http://${baseIp}:${port}/assets/${user[0].user_image}`,
-          });
+          const assignedRole = await database("staff_assigned_roles")
+            .join(
+              "staff_roles",
+              "staff_assigned_roles.role",
+              "staff_roles.role_id"
+            )
+            .where({
+              staff_id: user[0].stu_no,
+            })
+            .select("*");
+
+          if (assignedRole[0]) {
+            res.send({
+              ...user[0],
+              assignedRole: assignedRole[0],
+              imageUrl: `http://${baseIp}:${port}/assets/${user[0].user_image}`,
+              active_auth: sessionToken,
+            });
+          } else {
+            res.status(400).json({
+              error: `${user[0].userfull_name} doesn't have a role yet on the system, please head to the respective office to be assigned a role`,
+            });
+          }
         }
       }
     })
     .catch((err) => {
+      console.log("Err", err);
       res.status(400).json({ error: "Invalid email or password" });
     });
 });

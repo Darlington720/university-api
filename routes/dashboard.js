@@ -3,6 +3,262 @@ const router = express.Router();
 const moment = require("moment");
 const { database, baseIp, port } = require("../config");
 
+router.get("/main_dashboard/:campus_id", async (req, res) => {
+  const { campus_id } = req.params;
+  const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  // const date = "2023-03-22";
+  const currentTime = moment().format("HH:mm:ss");
+  // const currentTime = moment("10:30", "h:mm A");
+  // const currentTime = "11:00:00";
+  console.log("date 2de", date);
+  console.log("current time", currentTime);
+  // number of students, staff and visitors 2de in the given campus
+
+  const schools = await database.select("*").from("schools");
+  const school_codes = schools.map((sch) => sch.alias);
+  // console.log("the codes", school_codes);
+
+  //constraints
+  const constraints = await database
+    .select("*")
+    .from("constraints")
+    .orderBy("c_id");
+
+  //students 2de
+  const studentsSignedIn2de = await database
+    .select("*")
+    .from("students_biodata")
+    .join(
+      "student_signin",
+      "students_biodata.stdno",
+      "=",
+      "student_signin.stu_id"
+    )
+    .join("users", "student_signin.signed_in_by", "=", "users.id")
+    .join("gates", "student_signin.gate_id", "=", "gates.id")
+    .where("gates.campus_id", "=", campus_id)
+    .andWhere("student_signin.signin_date", "=", date)
+    .orderBy("signin_time");
+
+  //staff 2de
+  const staffSignedIN2de = await database
+    .select("*")
+    .from("staff_signin")
+    .join(
+      "staff",
+      "staff.staff_id",
+
+      "=",
+      "staff_signin.staff_id"
+    )
+    .join("users", "staff_signin.signed_in_by", "=", "users.id")
+    .join("gates", "staff_signin.gate_id", "=", "gates.id")
+    .where("gates.campus_id", "=", campus_id)
+    .where("staff_signin.signin_date", "=", date)
+    .orderBy("signin_time");
+
+  //visitors 2de
+  const visitorsSignedIn2de = await database("users")
+    .join(
+      "visitors",
+      "users.id",
+
+      "=",
+      "visitors.signed_in_by"
+    )
+    .join("gates", "visitors.gate_id", "=", "gates.id")
+    .where("gates.campus_id", "=", campus_id)
+    .where("visitors.date", "=", date)
+    .orderBy("time")
+    .select("*");
+
+  // number of lectures 2de, -> ongoing, ended and not started per school
+  //first am getting the day 2de
+  const dayId = new Date(date).getDay();
+
+  let lectures = [];
+  let lecturersWithMissedLectures = [];
+
+  const x = await schools.map(async (school) => {
+    const started2de = await database("lectures")
+      .join("lecture_timetable", "lectures.l_tt_id", "lecture_timetable.tt_id")
+      .join(
+        "timetable_groups",
+        "lecture_timetable.timetable_group_id",
+        "timetable_groups.tt_gr_id"
+      )
+      .join("schools", "timetable_groups.school_id", "schools.school_id")
+      .join("campus", "timetable_groups.campus", "campus.cam_id")
+      .join(
+        "lecture_sessions",
+        "lecture_timetable.session_id",
+        "lecture_sessions.ls_id "
+      )
+      .join(
+        "study_time",
+        "timetable_groups.study_time_id",
+        "study_time.study_time_code"
+      )
+      .leftJoin("rooms", "lecture_timetable.room_id", "rooms.room_id")
+
+      .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
+
+      .where("schools.alias", school.alias)
+      // .andWhere("date", date)
+      .where("lectures.date", date)
+      .andWhere("campus.cam_id", campus_id)
+      .select("*");
+
+    // let ongoingLectures = []
+    // let endedLectures = [];
+    //ongoing lectures
+    const ongoingLectures = started2de.filter(
+      (lecture) => !lecture.has_ended && !lecture.ended_at
+    );
+
+    //ended lectures
+    const endedLectures = started2de.filter(
+      (lecture) => lecture.has_ended && lecture.ended_at
+    );
+    const lecturesForThatDay = await database("lecture_timetable")
+      .join(
+        "timetable_groups",
+        "lecture_timetable.timetable_group_id",
+        "timetable_groups.tt_gr_id"
+      )
+
+      .join("schools", "timetable_groups.school_id", "schools.school_id")
+      .join("campus", "timetable_groups.campus", "campus.cam_id")
+      .join(
+        "lecture_sessions",
+        "lecture_timetable.session_id",
+        "lecture_sessions.ls_id "
+      )
+      .join(
+        "study_time",
+        "timetable_groups.study_time_id",
+        "study_time.study_time_code"
+      )
+      .leftJoin("rooms", "lecture_timetable.room_id", "rooms.room_id")
+
+      .leftJoin("staff", "lecture_timetable.lecturer_id", "=", "staff.staff_id")
+      // .where("lecture_sessions.start_time", "<=", currentTime)
+      .where("schools.alias", school.alias)
+      .andWhere("day_id", dayId)
+      .andWhere("campus.cam_id", campus_id)
+      .select("*");
+
+    const notYetStarted = [];
+    const missedLectures = [];
+    const now = moment();
+    // const now = moment("10:30", "HH:mm:ss");
+
+    const attendedLectureIds = started2de.map((startedLecture) => ({
+      tt_id: startedLecture.l_tt_id,
+      date: startedLecture.date,
+    }));
+
+    const notStartedLectures = lecturesForThatDay.filter((lecture) => {
+      return !attendedLectureIds.some((attendedLecture) => {
+        // console.log(
+        //   "comparison",
+        //   `${attendedLecture.tt_id} ${new Date(
+        //     attendedLecture.date
+        //   ).toDateString()}, ${new Date(lecture.date).toDateString()}`
+        // );
+        return attendedLecture.tt_id === lecture.tt_id;
+      });
+    });
+
+    notStartedLectures.forEach((lecture) => {
+      const startTime = moment(lecture.start_time, "h:mm A");
+      const endTime = moment(lecture.end_time, "h:mm A");
+
+      // console.log("start time", startTime);
+      // console.log("end time", endTime);
+      if (now.isBetween(startTime, endTime)) {
+        notYetStarted.push(lecture);
+      } else if (endTime.isBefore(now)) {
+        missedLectures.push(lecture);
+      }
+    });
+
+    if (missedLectures.length > 0) {
+      const lecturers = [
+        ...new Set(
+          missedLectures.map((lecture) => ({
+            lecturer_name: lecture.staff_name,
+            course_unit: lecture.course_unit_name,
+            session: lecture.session_name,
+            room: lecture.room_name,
+            school: lecture.alias,
+          }))
+        ),
+      ];
+      lecturersWithMissedLectures.push({
+        school: school.alias,
+        lecturers,
+      });
+    }
+
+    const data = {
+      school: school.alias,
+      allLectures2de: lecturesForThatDay,
+      notYetStarted,
+      missedLectures,
+      started2de,
+      ongoingLectures,
+      endedLectures,
+    };
+
+    lectures.push(data);
+  });
+
+  // students accessing the campus per school
+  const result = await database
+    .select("students_biodata.facultycode")
+    .count("students_biodata.stdno as count")
+    .from("students_biodata")
+    // .join(
+    //   "student_signin",
+    //   "students_biodata.stdno",
+    //   "=",
+    //   "student_signin.stu_id"
+    // )
+    // .join("users", "student_signin.signed_in_by", "=", "users.id")
+    .leftJoin(
+      "student_signin",
+      "students_biodata.stdno",
+      "=",
+      "student_signin.stu_id"
+    )
+    .leftJoin("users", "student_signin.signed_in_by", "=", "users.id")
+    .join("gates", "student_signin.gate_id", "=", "gates.id")
+    .where("gates.campus_id", "=", campus_id)
+    .where("student_signin.signin_date", "=", date)
+    .whereIn("students_biodata.facultycode", school_codes)
+    .groupBy("students_biodata.facultycode");
+
+  Promise.all(x).then((d) => {
+    res.send({
+      statistics: {
+        students: studentsSignedIn2de.length,
+        staff: staffSignedIN2de.length,
+        visitors: visitorsSignedIn2de.length,
+      },
+      studentsAccessingCampus: result,
+      lectures,
+      lecturersWithMissedLectures,
+      constraints,
+      campus_id,
+    });
+  });
+
+  // students in portions who are in campus
+
+  //trend of students entering at the gate in the week
+});
 //dina
 router.post("/saveDinaTableDetails", (req, res) => {
   // const { name, percentage } = req.body;
@@ -81,7 +337,7 @@ router.post("/addConstraint", (req, res) => {
 
 router.post("/updateConstraint/", (req, res) => {
   const { c_id, c_name, c_percentage } = req.body;
-  // console.log(req.body);
+  console.log(req.body);
 
   database("constraints")
     .where(function () {
@@ -91,11 +347,17 @@ router.post("/updateConstraint/", (req, res) => {
       c_name: c_name,
       c_percentage: c_percentage,
     })
-    .then((data) => {
-      res.send("updated the data");
-      console.log("Data here", data);
+    .then(async (data) => {
+      const updatedObject = await database("constraints");
+
+      res.send(updatedObject);
+
+      // console.log("Data here", data);
     })
-    .catch((err) => res.send(err));
+    .catch((err) => {
+      console.log("the error", err);
+      res.send(err);
+    });
 });
 
 router.get("/weeklyChartData", (req, res) => {
@@ -193,38 +455,6 @@ router.get("/weeklyChartData", (req, res) => {
   }
 });
 
-// router.get("/students-per-week", async (req, res) => {
-//   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-//   const currentDayOfWeek = moment().format("d");
-//   const currentWeek = [];
-
-//   for (let i = 0; i <= currentDayOfWeek; i++) {
-//     currentWeek.push(daysOfWeek[i]);
-//   }
-
-//   const currentWeekStart = moment().startOf("week").format("YYYY-MM-DD");
-//   const currentDate = moment().format("YYYY-MM-DD");
-
-//   const results = await database
-//     .select(database.raw("DATE(signin_date) as signin_date, count(*) as count"))
-//     .from("student_signin")
-//     .whereBetween("signin_date", [currentWeekStart, currentDate])
-//     .groupBy("signin_date")
-//     .orderBy("signin_date");
-
-//   const data = Array(currentDayOfWeek + 1).fill(0);
-//   const labels = currentWeek;
-
-//   results.forEach((result) => {
-//     const dayOfWeek = moment(result.signin_date).format("d");
-//     const index = currentWeek.indexOf(daysOfWeek[dayOfWeek]);
-//     data[index] = result.count;
-//   });
-
-//   res.json({ labels, data });
-// });
-
 router.get("/students-per-week", async (req, res) => {
   const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -260,6 +490,7 @@ router.get("/students-per-week", async (req, res) => {
 
   res.json({ labels, data });
 });
+
 router.get("/weeklyLectureData", (req, res) => {
   const d = new Date();
   const currentDate =
@@ -498,6 +729,37 @@ router.get("/num0fstudentsToday", (req, res) => {
 
 router.get("/staffToday", (req, res) => {
   const d = new Date();
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  //to be changed for the dashboard
+  database
+    .select("*")
+    .from("staff_signin")
+    .join(
+      "staff",
+      "staff.staff_id",
+
+      "=",
+      "staff_signin.staff_id"
+    )
+    .join("users", "staff_signin.signed_in_by", "=", "users.id")
+    .where("staff_signin.signin_date", "=", date)
+    .orderBy("signin_time")
+    .then((data) => {
+      data.map((item) => {
+        const d2 = new Date(item.signin_date);
+        const date2 = ` ${d2.getFullYear()}-${
+          d2.getMonth() + 1
+        }-${d2.getDate()}`;
+        item.signin_date = date2;
+      });
+      res.send(data);
+    });
+});
+
+router.post("/staffByDate", (req, res) => {
+  const { selectedDate } = req.body;
+  // console.log("THe received date", selectedDate);
+  const d = new Date(selectedDate);
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
   //to be changed for the dashboard
   database

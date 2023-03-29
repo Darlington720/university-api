@@ -361,7 +361,9 @@ router.get("/image/:id", (req, res) => {
       (err, data) => {
         if (err) {
           console.log("An identified error", err);
-          res.sendFile(__dirname + `/public/assets/ph2.jpg`);
+          res.sendFile(
+            path.join(__dirname, "..", "public", "assets", `ph2.jpg`)
+          );
         } else {
           res.sendFile(
             path.join(
@@ -384,6 +386,89 @@ router.get("/image/:id", (req, res) => {
   // } catch (error) {
   //   res.sendFile(__dirname + `/public/assets/akampa.jpg`);
   // }
+});
+
+router.post("/addStaff", async (req, res) => {
+  const { staff_id, staff_name, title, role } = req.body;
+
+  const existingStaff = await database("staff")
+    .where({
+      staff_id,
+    })
+    .first();
+
+  if (existingStaff) {
+    return res.send({
+      success: false,
+      message: `Staff Member with id ${staff_id} already exists`,
+    });
+  }
+
+  database("staff")
+    .insert({
+      staff_id,
+      staff_name,
+      title: title.value,
+      role,
+    })
+    .then((result) => {
+      res.send({
+        success: true,
+        message: "Staff Member saved successfully",
+      });
+    })
+    .catch((err) => {
+      console.log("err adding new staff", err);
+    });
+});
+
+router.post("/assignStaffRole", async (req, res) => {
+  const { staff, school, role, campus } = req.body;
+
+  const existingStaff = await database("staff_assigned_roles")
+    .where({
+      staff_id: staff.value,
+    })
+    .first();
+
+  if (existingStaff) {
+    return res.send({
+      success: false,
+      message: `Staff Member with id ${staff.value} already has a role`,
+    });
+  }
+
+  database("staff_assigned_roles")
+    .insert({
+      staff_id: staff.value,
+      for_wc_sch: school.value,
+      role: role.value,
+      campus_id: campus.value,
+    })
+    .then((result) => {
+      res.send({
+        success: true,
+        message: "Staff member assigned to role successfully",
+      });
+    })
+    .catch((err) => {
+      console.log("err adding new staff", err);
+    });
+});
+
+router.get("/staff_assignment_reqs", async (req, res) => {
+  const staff = await database("staff").select("staff_id", "staff_name");
+  const roles = await database("staff_roles").select("*");
+  const schools = await database("schools").select("*");
+
+  res.send({
+    success: true,
+    result: {
+      staff,
+      roles,
+      schools,
+    },
+  });
 });
 
 module.exports = router;
