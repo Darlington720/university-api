@@ -316,7 +316,7 @@ router.get("/student/:studentNo", authenticateSession, (req, res) => {
     });
 });
 
-router.get("/constraintList", async (req, res) => {
+router.get("/constraintList", authenticateSession, async (req, res) => {
   const constraints = await database
     .select("*")
     .from("constraints")

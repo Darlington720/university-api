@@ -177,294 +177,624 @@ data.map((item) =>
   })
 );
 
-app.post("/api/importExceltodb", (req, res) => {
+app.post("/api/importExceltodb", async (req, res) => {
   try {
     // console.log("received This ", req.body.excelObj);
     if (!req.files) {
-      req.send({
+      res.send({
         status: false,
         message: "No files Uploaded",
       });
     } else {
-      let xlsFile = req.files.excelFile;
-      // console.log("File i got ", xlsFile);
+      let xlsFile = [];
+      // xlsFile = req.files.excelFile;
+      // console.log("Files i got ", Array.isArray(req.files.excelFile));
+      if (!Array.isArray(req.files.excelFile)) {
+        xlsFile.push(req.files.excelFile);
+      } else {
+        xlsFile = req.files.excelFile;
+      }
 
-      // res.send(xlsFile);
+      console.log("Files i got ", xlsFile);
+      const worksheets = [];
 
-      // console.log("path ", __dirname);
-      xlsFile
-        .mv(__dirname + "/upload/excel_sheets/" + xlsFile.name)
-        .then(() => {
-          try {
-            const workbook = XLSX.readFile(
-              `${__dirname}/upload/excel_sheets/${xlsFile.name}`
-            );
+      const x = await xlsFile.map(async (csvFile) => {
+        // Save all the sent files
+        await csvFile.mv(__dirname + "/upload/excel_sheets/" + csvFile.name);
 
-            // Get the first worksheet in the workbook
-            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        // Read each of the saved files
+        const workbook = XLSX.readFile(
+          `${__dirname}/upload/excel_sheets/${csvFile.name}`
+        );
 
-            // Convert the worksheet to a JSON object
-            const json = XLSX.utils.sheet_to_json(worksheet);
+        // Get the first worksheet in the workbook
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
 
-            const modifiedArray = json.map((obj) => {
-              const newObj = {};
-              for (const key in obj) {
-                let filteredKey = key.replace(/"/g, "");
-                newObj[filteredKey] = obj[key].replace(/"/g, "");
-              }
-              return newObj;
+        // Convert the worksheet to a JSON object
+        const json = XLSX.utils.sheet_to_json(worksheet);
+
+        // console.log("Extracted json", json);
+
+        // console.log("Json data gen", json);
+        worksheets.push(json);
+      });
+
+      Promise.all(x).then(async () => {
+        const combinedWorksheet = worksheets.reduce((result, worksheet) => {
+          return result.concat(worksheet);
+        }, []);
+        console.log("Final worksheet", combinedWorksheet.length);
+        const arr = combinedWorksheet.map((obj) => {
+          const newObj = {};
+          for (const key in obj) {
+            // let filteredKey = key.replace(/"/g, "");
+            // let filteredKey = key.replace(/("|""|""")/g, "");
+            let filteredKey = key.replace(/("|""|"""|\\\\)/g, "");
+            newObj[filteredKey] = obj[key].replace(/"/g, "");
+          }
+          return newObj;
+        });
+
+        // filter out the header rows in each excel file provided
+        const modifiedArray = arr.filter((s) => s.stdno !== "stdno");
+
+        // console.log("Modified Arr", modifiedArray);
+        // res.send({
+        //   data: mod,
+        // });
+
+        // try {
+        // } catch (error) {
+        //   console.log("error", error);
+        //   res.send({
+        //     success: false,
+        //     message:
+        //       "The files sent contain an unknown error, This error is related to the columns of the files sent",
+        //   });
+        // }
+
+        try {
+          const fieldsToInsertBiodata = modifiedArray
+            .map((field, index) => {
+              // const noSpecialChars = str.replace(/[^a-zA-Z0-9 ]/g, "");
+              // if (index == 0) return;
+              // console.log(field);
+              // res.send(field);
+
+              return {
+                stdno: field.stdno.replace(/[^a-zA-Z0-9 ]/g, ""),
+                regno: field.regno.replace(/[^a-zA-Z0-9/ ]/g, ""),
+                name: field.name.replace(/[^a-zA-Z0-9 ]/g, ""),
+                email: `${field.email.replace(/[^a-zA-Z0-9 ]/g, "")}`,
+                admissions_form_no: "",
+                sex: field.sex.replace(/[^a-zA-Z0-9 ]/g, ""),
+                telno: field.telno
+                  ? field.telno.replace(/[^a-zA-Z0-9 ]/g, "")
+                  : "",
+                entry_ac_yr: field.entry_ac_yr
+                  ? field.entry_ac_yr.replace(/[^a-zA-Z0-9 ]/g, "")
+                  : "",
+                entry_study_yr: field.study_yr.replace(/[^a-zA-Z0-9 ]/g, ""),
+                nationality: field.nationality.replace(/[^a-zA-Z0-9 ]/g, ""),
+                facultycode: field.facultycode.replace(/[^a-zA-Z0-9 ]/g, ""),
+                progtitle: field.progtitle.replace(/[^a-zA-Z0-9 ]/g, ""),
+                progcode: field.progcode.replace(/[^a-zA-Z0-9 ]/g, ""),
+                prog_alias: field.prog_alias.replace(/[^a-zA-Z0-9 ]/g, ""),
+
+                programlevel: field.programlevel.replace(/[^a-zA-Z0-9 ]/g, ""),
+                progduration: "",
+                facultytitle: field.facultytitle.replace(/[^a-zA-Z0-9 ]/g, ""),
+                intake: field.intake.replace(/[^a-zA-Z0-9 ]/g, ""),
+                campus: field.campus.replace(/[^a-zA-Z0-9 ]/g, ""),
+                sponsorship: field.sponsorship.replace(/[^a-zA-Z0-9 ]/g, ""),
+                residence_status: field.residence_status.replace(
+                  /[^a-zA-Z0-9 ]/g,
+                  ""
+                ),
+                current_sem: field.sem.replace(/[^a-zA-Z0-9 ]/g, ""),
+                study_yr: field.study_yr.replace(/[^a-zA-Z0-9 ]/g, ""),
+                study_time: field.study_time.replace(/[^a-zA-Z0-9 ]/g, ""),
+                collegetitle: field.collegetitle.replace(/[^a-zA-Z0-9 ]/g, ""),
+                std_status: 0,
+                progversion: "",
+              };
+            })
+            .filter((row) => {
+              return row !== undefined;
             });
 
-            // console.log("The final object", modifiedArray);
-            // res.send(modifiedArray);
+          // console.log("Bio data", fieldsToInsertBiodata);
 
-            const fieldsToInsertBiodata = modifiedArray
-              .map((field, index) => {
-                // const noSpecialChars = str.replace(/[^a-zA-Z0-9 ]/g, "");
-                if (index == 0) return;
-                return {
-                  stdno: field.stdno.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  regno: field.regno.replace(/[^a-zA-Z0-9/ ]/g, ""),
-                  name: field.name.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  admissions_form_no: "",
-                  sex: field.sex.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  telno: field.telno.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  entry_ac_yr: field.entry_ac_yr.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  entry_study_yr: field.study_yr.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  nationality: field.nationality.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  facultycode: field.facultycode.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  progtitle: field.progtitle.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  progcode: field.progcode.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  prog_alias: field.prog_alias.replace(/[^a-zA-Z0-9 ]/g, ""),
+          const fieldsToInsert = modifiedArray
+            .map((field, index) => {
+              const noWhiteSpace = field.total_bill.replace(/\s/g, "");
+              var cleanTotalBill = noWhiteSpace.replace(/[^a-zA-Z0-9. ]/g, "");
 
-                  programlevel: field.programlevel.replace(
-                    /[^a-zA-Z0-9 ]/g,
-                    ""
-                  ),
-                  progduration: "",
-                  facultytitle: field.facultytitle.replace(
-                    /[^a-zA-Z0-9 ]/g,
-                    ""
-                  ),
-                  intake: field.intake.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  campus: field.campus.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  sponsorship: field.sponsorship.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  residence_status: field.residence_status.replace(
-                    /[^a-zA-Z0-9 ]/g,
-                    ""
-                  ),
-                  current_sem: field.sem.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  study_yr: field.study_yr.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  study_time: field.study_time.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  collegetitle: field.collegetitle.replace(
-                    /[^a-zA-Z0-9 ]/g,
-                    ""
-                  ),
-                  std_status: 0,
-                  progversion: "",
-                };
-              })
-              .filter((row) => {
-                return row !== undefined;
-              });
+              const noWhiteSpace2 = field.total_paid.replace(/\s/g, "");
+              var cleanTotalPaid = noWhiteSpace2.replace(/[^a-zA-Z0-9. ]/g, "");
 
-            const fieldsToInsert = modifiedArray
-              .map((field, index) => {
-                const noWhiteSpace = field.total_bill.replace(/\s/g, "");
-                var cleanTotalBill = noWhiteSpace.replace(
-                  /[^a-zA-Z0-9. ]/g,
-                  ""
-                );
+              const noWhiteSpace3 = field.total_credit.replace(/\s/g, "");
+              var cleanTotalCredit = noWhiteSpace3.replace(
+                /[^a-zA-Z0-9. ]/g,
+                ""
+              );
 
-                const noWhiteSpace2 = field.total_paid.replace(/\s/g, "");
-                var cleanTotalPaid = noWhiteSpace2.replace(
-                  /[^a-zA-Z0-9. ]/g,
-                  ""
-                );
+              const noWhiteSpace4 = field.total_due.replace(/\s/g, "");
+              var cleanTotalDue = noWhiteSpace4.replace(/[^\d]+/g, "");
 
-                const noWhiteSpace3 = field.total_credit.replace(/\s/g, "");
-                var cleanTotalCredit = noWhiteSpace3.replace(
-                  /[^a-zA-Z0-9. ]/g,
-                  ""
-                );
+              // const noSpecialChars = str.replace(/[^a-zA-Z0-9 ]/g, "");
+              // if (index == 0) return;
 
-                const noWhiteSpace4 = field.total_due.replace(/\s/g, "");
-                var cleanTotalDue = noWhiteSpace4.replace(/[^\d]+/g, "");
-
-                // const noSpecialChars = str.replace(/[^a-zA-Z0-9 ]/g, "");
-                // if (index == 0) return;
-
-                // res.send(field);
-                return {
-                  stu_no: field.stdno.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  acc_yr: field.accyr.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  study_yr: field.study_yr.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  sem: field.sem.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  reg_status: field.reg_status.replace(/[^a-zA-Z0-9 ]/g, ""),
-                  total_bill: cleanTotalBill,
-                  total_credit: cleanTotalCredit,
-                  tatal_paid: cleanTotalPaid,
-                  paid_percentage: isNaN(
-                    parseInt(
+              // res.send(field);
+              return {
+                stu_no: field.stdno.replace(/[^a-zA-Z0-9 ]/g, ""),
+                acc_yr: field.accyr.replace(/[^a-zA-Z0-9 ]/g, ""),
+                study_yr: field.study_yr.replace(/[^a-zA-Z0-9 ]/g, ""),
+                sem: field.sem.replace(/[^a-zA-Z0-9 ]/g, ""),
+                reg_status: field.reg_status.replace(/[^a-zA-Z0-9 ]/g, ""),
+                total_bill: cleanTotalBill,
+                total_credit: cleanTotalCredit,
+                tatal_paid: cleanTotalPaid,
+                paid_percentage: isNaN(
+                  parseInt(
+                    ((parseInt(cleanTotalPaid) + parseInt(cleanTotalCredit)) /
+                      parseInt(cleanTotalBill)) *
+                      100
+                  )
+                )
+                  ? 0
+                  : parseInt(
                       ((parseInt(cleanTotalPaid) + parseInt(cleanTotalCredit)) /
                         parseInt(cleanTotalBill)) *
                         100
-                    )
-                  )
-                    ? 0
-                    : parseInt(
-                        ((parseInt(cleanTotalPaid) +
-                          parseInt(cleanTotalCredit)) /
-                          parseInt(cleanTotalBill)) *
-                          100
-                      ),
-                  total_due: cleanTotalDue,
-                };
-              })
-              .filter((row) => {
-                return row !== undefined;
-              });
-
-            const inserts = fieldsToInsert.map((stu) => {
-              // database("student_paid_fess")
-              //   .where("stu_no", stu.stu_no)
-              //   .andWhere("study_yr", stu.study_yr)
-              //   .andWhere("sem", stu.sem)
-              return database
-                .select("*")
-                .where({
-                  stu_no: stu.stu_no,
-                  study_yr: stu.study_yr,
-                  sem: stu.sem,
-                })
-                .from("student_paid_fess")
-                .then((result) => {
-                  //the stu number is not there
-                  if (result.length == 0) {
-                    return database("student_paid_fess")
-                      .insert(stu)
-                      .then((data) => {
-                        // res.status(200).send("Success");
-                        // console.log("Data", data);
-                      })
-                      .catch((err) => {
-                        console.log("Failed to save the data", err);
-                        // res.status(400).send("fail");
-                      });
-                  } else {
-                    //the stu no id there
-                    return database("student_paid_fess")
-                      .where(function () {
-                        this.where("stu_no", "=", stu.stu_no);
-                      })
-
-                      .andWhere(function () {
-                        this.where("study_yr", "=", stu.study_yr);
-                      })
-                      .andWhere(function () {
-                        this.where("sem", "=", stu.sem);
-                      })
-                      .update({
-                        acc_yr: stu.acc_yr,
-                        paid_percentage: stu.paid_percentage,
-                        reg_status: stu.reg_status,
-                        total_bill: stu.total_bill,
-                        total_credit: stu.total_credit,
-                        tatal_paid: stu.tatal_paid,
-                        total_due: stu.total_due,
-                      })
-                      .then((data) => {
-                        // res.send("updated the data");
-                        // console.log("Data here", data);
-                      })
-                      .catch((err) =>
-                        console.log("Error in updating the data", err)
-                      );
-                  }
-                });
+                    ),
+                total_due: cleanTotalDue,
+              };
+            })
+            .filter((row) => {
+              return row !== undefined;
             });
 
-            const insert2 = fieldsToInsertBiodata.map((student) => {
-              return database
-                .select("*")
-                .from("students_biodata")
-                .where("students_biodata.stdno", "=", student.stdno)
-                .then((stuData) => {
-                  if (stuData.length == 0) {
-                    return database("students_biodata")
-                      .insert({
-                        stdno: student.stdno,
-                        regno: student.regno,
-                        name: student.name,
-                        admissions_form_no: student.admissions_form_no,
-                        sex: student.sex,
-                        telno: student.telno,
-                        entry_ac_yr: student.entry_ac_yr,
-                        entry_study_yr: student.entry_study_yr,
-                        nationality: student.nationality,
-                        facultycode: student.facultycode,
-                        progtitle: student.progtitle,
-                        progcode: student.progcode,
-                        prog_alias: student.prog_alias,
-                        programlevel: student.programlevel,
-                        progduration: student.progduration,
-                        facultytitle: student.facultytitle,
-                        intake: student.intake,
-                        campus: student.campus,
-                        sponsorship: student.sponsorship,
-                        residence_status: student.residence_status,
-                        current_sem: student.current_sem,
-                        study_yr: student.study_yr,
-                        study_time: student.study_time,
-                        collegetitle: student.collegetitle,
-                        std_status: student.std_status,
-                        progversion: student.progversion,
-                      })
-                      .then((result) => {
-                        console.log(
-                          "Added a new student to our db ",
-                          student.stdno
-                        );
-                      });
-                  }
-                });
-            });
+          const newStudents = await database("students_biodata")
+            .insert(fieldsToInsertBiodata)
+            .onConflict("stdno")
+            .ignore();
 
-            // Wait for all the inserts to complete
-            Promise.all([...insert2, ...inserts])
-              .then(() => {
-                // Send the response when the inserts are done
-                database("uploaded_excel_forms_fees")
-                  .insert({
-                    file_name: xlsFile.name,
-                    upload_date: new Date(),
-                  })
-                  .then((result) => {
-                    res.send({
+          await database("uploaded_excel_forms_fees").insert({
+            file_name: xlsFile[0].name,
+            upload_date: new Date(),
+          });
+
+          database("student_paid_fess")
+            .whereIn(
+              "stu_no",
+              fieldsToInsert.map((d) => d.stu_no)
+            )
+            .whereIn(
+              "study_yr",
+              fieldsToInsert.map((d) => d.study_yr)
+            )
+            .whereIn(
+              "sem",
+              fieldsToInsert.map((d) => d.sem)
+            )
+            .then(async (result) => {
+              console.log("result", result.length);
+              console.log("Modified Arr", modifiedArray.length);
+              if (result.length == 0) {
+                database("student_paid_fess")
+                  .insert(fieldsToInsert)
+                  .then((data) => {
+                    res.status(200).send({
                       success: true,
-                      message: "Excel sheet uploaded successfully",
+                      message: "Excel Sheets Uploded Successfully",
                     });
+                    // console.log("Data", data);
+                  })
+                  .catch((err) => {
+                    console.log("Failed to save the data", err);
+                    // res.status(400).send("fail");
                   });
-              })
-              .catch((err) => {
-                console.error(err);
-                // res.send(`Error ${err}`);
-                res.send({
-                  success: false,
-                  message: "Theres a problem with the sent file",
+              }
+              //  else if (modifiedArray.length > result.length) {
+              //   return await database("student_paid_fess")
+              //     .insert(fieldsToInsert)
+              //     // .onConflict(["stu_no", "study_yr", "sem"])
+              //     // .merge()
+              //     .whereNotExists(function () {
+              //       this.select("*")
+              //         .from("student_paid_fess")
+              //         .whereIn(
+              //           "stu_no",
+              //           fieldsToInsert.map((row) => row.stu_no)
+              //         )
+              //         .whereIn(
+              //           "study_yr",
+              //           fieldsToInsert.map((row) => row.study_yr)
+              //         )
+              //         .whereIn(
+              //           "sem",
+              //           fieldsToInsert.map((row) => row.sem)
+              //         );
+              //     });
+              // }
+              else {
+                // const newStu = fieldsToInsert.filter(
+                //   (student) =>
+                //     !result.some(
+                //       (existingStu) =>
+                //         student.stu_no === existingStu.stu_no &&
+                //         student.study_yr === existingStu.study_yr &&
+                //         student.sem === existingStu.sem
+                //     )
+                // );
+
+                // const existingStudents = fieldsToInsert.filter((student) =>
+                //   result.some(
+                //     (existingStu) =>
+                //       student.stu_no === existingStu.stu_no &&
+                //       student.study_yr === existingStu.study_yr &&
+                //       student.sem === existingStu.sem
+                //   )
+                // );
+
+                // Filter out the new students from the already existing ones
+                const { newStudents, existingStudents } = fieldsToInsert.reduce(
+                  (acc, student) => {
+                    const isExisting = result.some(
+                      (existingStu) =>
+                        student.stu_no === existingStu.stu_no &&
+                        student.study_yr === existingStu.study_yr &&
+                        student.sem === existingStu.sem
+                    );
+
+                    if (isExisting) {
+                      acc.existingStudents.push(student);
+                    } else {
+                      acc.newStudents.push(student);
+                    }
+
+                    return acc;
+                  },
+                  { newStudents: [], existingStudents: [] }
+                );
+
+                // Insert the new students first
+                // console.log("new students", newStudents)
+                if (newStudents.length > 0) {
+                  await database("student_paid_fess").insert(newStudents);
+                }
+
+                // After, go for the existing ones
+                const updatePromises = existingStudents.map((existingRow) => {
+                  return database("student_paid_fess")
+                    .where({
+                      stu_no: existingRow.stu_no,
+                      study_yr: existingRow.study_yr,
+                      sem: existingRow.sem,
+                    })
+                    .update(existingRow);
                 });
-              });
-          } catch (error) {
-            console.log("Error", error);
-            res.send({
-              success: false,
-              message: "Error in file provided",
+
+                return Promise.all(updatePromises).then(() => {
+                  res.status(200).send({
+                    success: true,
+                    message: "Updated the fields Successfully",
+                  });
+                });
+              }
             });
-          }
-        });
+        } catch (error) {
+          console.log("error", error);
+          res.send({
+            success: false,
+            message:
+              "The files sent are too many, kindly remove some files and try again",
+          });
+        }
+
+        // Promise.all([...insert2, ...inserts])
+        //   .then(() => {
+        //     // Send the response when the inserts are done
+        //     database("uploaded_excel_forms_fees")
+        //       .insert({
+        //         file_name: xlsFile[0].name,
+        //         upload_date: new Date(),
+        //       })
+        //       .then((result) => {
+        //         res.send({
+        //           success: true,
+        //           message: "Excel sheets uploaded successfully",
+        //         });
+        //       });
+        //   })
+        //   .catch((err) => {
+        //     console.error(err);
+        //     // res.send(`Error ${err}`);
+        //     res.send({
+        //       success: false,
+        //       message: `Theres a problem with the sent files: ${err}`,
+        //     });
+        //   });
+        // res.send({ data: modifiedArray });
+      });
+
+      // xlsFile
+      //   .mv(__dirname + "/upload/excel_sheets/" + xlsFile.name)
+      //   .then(() => {
+      //     try {
+      //       const workbook = XLSX.readFile(
+      //         `${__dirname}/upload/excel_sheets/${xlsFile.name}`
+      //       );
+
+      //       // Get the first worksheet in the workbook
+      //       const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+
+      //       // Convert the worksheet to a JSON object
+      //       const json = XLSX.utils.sheet_to_json(worksheet);
+
+      //       console.log("Extracted json", json);
+
+      //       const modifiedArray = json.map((obj) => {
+      //         const newObj = {};
+      //         for (const key in obj) {
+      //           let filteredKey = key.replace(/"/g, "");
+      //           newObj[filteredKey] = obj[key].replace(/"/g, "");
+      //         }
+      //         return newObj;
+      //       });
+
+      //       // console.log("The final object", modifiedArray);
+      //       // res.send(modifiedArray);
+
+      //       const fieldsToInsertBiodata = modifiedArray
+      //         .map((field, index) => {
+      //           // const noSpecialChars = str.replace(/[^a-zA-Z0-9 ]/g, "");
+      //           if (index == 0) return;
+      //           return {
+      //             stdno: field.stdno.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             regno: field.regno.replace(/[^a-zA-Z0-9/ ]/g, ""),
+      //             name: field.name.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             admissions_form_no: "",
+      //             sex: field.sex.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             telno: field.telno.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             entry_ac_yr: field.entry_ac_yr.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             entry_study_yr: field.study_yr.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             nationality: field.nationality.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             facultycode: field.facultycode.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             progtitle: field.progtitle.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             progcode: field.progcode.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             prog_alias: field.prog_alias.replace(/[^a-zA-Z0-9 ]/g, ""),
+
+      //             programlevel: field.programlevel.replace(
+      //               /[^a-zA-Z0-9 ]/g,
+      //               ""
+      //             ),
+      //             progduration: "",
+      //             facultytitle: field.facultytitle.replace(
+      //               /[^a-zA-Z0-9 ]/g,
+      //               ""
+      //             ),
+      //             intake: field.intake.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             campus: field.campus.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             sponsorship: field.sponsorship.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             residence_status: field.residence_status.replace(
+      //               /[^a-zA-Z0-9 ]/g,
+      //               ""
+      //             ),
+      //             current_sem: field.sem.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             study_yr: field.study_yr.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             study_time: field.study_time.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             collegetitle: field.collegetitle.replace(
+      //               /[^a-zA-Z0-9 ]/g,
+      //               ""
+      //             ),
+      //             std_status: 0,
+      //             progversion: "",
+      //           };
+      //         })
+      //         .filter((row) => {
+      //           return row !== undefined;
+      //         });
+
+      //       const fieldsToInsert = modifiedArray
+      //         .map((field, index) => {
+      //           const noWhiteSpace = field.total_bill.replace(/\s/g, "");
+      //           var cleanTotalBill = noWhiteSpace.replace(
+      //             /[^a-zA-Z0-9. ]/g,
+      //             ""
+      //           );
+
+      //           const noWhiteSpace2 = field.total_paid.replace(/\s/g, "");
+      //           var cleanTotalPaid = noWhiteSpace2.replace(
+      //             /[^a-zA-Z0-9. ]/g,
+      //             ""
+      //           );
+
+      //           const noWhiteSpace3 = field.total_credit.replace(/\s/g, "");
+      //           var cleanTotalCredit = noWhiteSpace3.replace(
+      //             /[^a-zA-Z0-9. ]/g,
+      //             ""
+      //           );
+
+      //           const noWhiteSpace4 = field.total_due.replace(/\s/g, "");
+      //           var cleanTotalDue = noWhiteSpace4.replace(/[^\d]+/g, "");
+
+      //           // const noSpecialChars = str.replace(/[^a-zA-Z0-9 ]/g, "");
+      //           // if (index == 0) return;
+
+      //           // res.send(field);
+      //           return {
+      //             stu_no: field.stdno.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             acc_yr: field.accyr.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             study_yr: field.study_yr.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             sem: field.sem.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             reg_status: field.reg_status.replace(/[^a-zA-Z0-9 ]/g, ""),
+      //             total_bill: cleanTotalBill,
+      //             total_credit: cleanTotalCredit,
+      //             tatal_paid: cleanTotalPaid,
+      //             paid_percentage: isNaN(
+      //               parseInt(
+      //                 ((parseInt(cleanTotalPaid) + parseInt(cleanTotalCredit)) /
+      //                   parseInt(cleanTotalBill)) *
+      //                   100
+      //               )
+      //             )
+      //               ? 0
+      //               : parseInt(
+      //                   ((parseInt(cleanTotalPaid) +
+      //                     parseInt(cleanTotalCredit)) /
+      //                     parseInt(cleanTotalBill)) *
+      //                     100
+      //                 ),
+      //             total_due: cleanTotalDue,
+      //           };
+      //         })
+      //         .filter((row) => {
+      //           return row !== undefined;
+      //         });
+
+      //       const inserts = fieldsToInsert.map((stu) => {
+      //         // database("student_paid_fess")
+      //         //   .where("stu_no", stu.stu_no)
+      //         //   .andWhere("study_yr", stu.study_yr)
+      //         //   .andWhere("sem", stu.sem)
+      //         return database
+      //           .select("*")
+      //           .where({
+      //             stu_no: stu.stu_no,
+      //             study_yr: stu.study_yr,
+      //             sem: stu.sem,
+      //           })
+      //           .from("student_paid_fess")
+      //           .then((result) => {
+      //             //the stu number is not there
+      //             if (result.length == 0) {
+      //               return database("student_paid_fess")
+      //                 .insert(stu)
+      //                 .then((data) => {
+      //                   // res.status(200).send("Success");
+      //                   // console.log("Data", data);
+      //                 })
+      //                 .catch((err) => {
+      //                   console.log("Failed to save the data", err);
+      //                   // res.status(400).send("fail");
+      //                 });
+      //             } else {
+      //               //the stu no id there
+      //               return database("student_paid_fess")
+      //                 .where(function () {
+      //                   this.where("stu_no", "=", stu.stu_no);
+      //                 })
+
+      //                 .andWhere(function () {
+      //                   this.where("study_yr", "=", stu.study_yr);
+      //                 })
+      //                 .andWhere(function () {
+      //                   this.where("sem", "=", stu.sem);
+      //                 })
+      //                 .update({
+      //                   acc_yr: stu.acc_yr,
+      //                   paid_percentage: stu.paid_percentage,
+      //                   reg_status: stu.reg_status,
+      //                   total_bill: stu.total_bill,
+      //                   total_credit: stu.total_credit,
+      //                   tatal_paid: stu.tatal_paid,
+      //                   total_due: stu.total_due,
+      //                 })
+      //                 .then((data) => {
+      //                   // res.send("updated the data");
+      //                   // console.log("Data here", data);
+      //                 })
+      //                 .catch((err) =>
+      //                   console.log("Error in updating the data", err)
+      //                 );
+      //             }
+      //           });
+      //       });
+
+      //       const insert2 = fieldsToInsertBiodata.map((student) => {
+      //         return database
+      //           .select("*")
+      //           .from("students_biodata")
+      //           .where("students_biodata.stdno", "=", student.stdno)
+      //           .then((stuData) => {
+      //             if (stuData.length == 0) {
+      //               return database("students_biodata")
+      //                 .insert({
+      //                   stdno: student.stdno,
+      //                   regno: student.regno,
+      //                   name: student.name,
+      //                   admissions_form_no: student.admissions_form_no,
+      //                   sex: student.sex,
+      //                   telno: student.telno,
+      //                   entry_ac_yr: student.entry_ac_yr,
+      //                   entry_study_yr: student.entry_study_yr,
+      //                   nationality: student.nationality,
+      //                   facultycode: student.facultycode,
+      //                   progtitle: student.progtitle,
+      //                   progcode: student.progcode,
+      //                   prog_alias: student.prog_alias,
+      //                   programlevel: student.programlevel,
+      //                   progduration: student.progduration,
+      //                   facultytitle: student.facultytitle,
+      //                   intake: student.intake,
+      //                   campus: student.campus,
+      //                   sponsorship: student.sponsorship,
+      //                   residence_status: student.residence_status,
+      //                   current_sem: student.current_sem,
+      //                   study_yr: student.study_yr,
+      //                   study_time: student.study_time,
+      //                   collegetitle: student.collegetitle,
+      //                   std_status: student.std_status,
+      //                   progversion: student.progversion,
+      //                 })
+      //                 .then((result) => {
+      //                   console.log(
+      //                     "Added a new student to our db ",
+      //                     student.stdno
+      //                   );
+      //                 });
+      //             }
+      //           });
+      //       });
+
+      //       // Wait for all the inserts to complete
+      //       Promise.all([...insert2, ...inserts])
+      //         .then(() => {
+      //           // Send the response when the inserts are done
+      //           database("uploaded_excel_forms_fees")
+      //             .insert({
+      //               file_name: xlsFile.name,
+      //               upload_date: new Date(),
+      //             })
+      //             .then((result) => {
+      //               res.send({
+      //                 success: true,
+      //                 message: "Excel sheet uploaded successfully",
+      //               });
+      //             });
+      //         })
+      //         .catch((err) => {
+      //           console.error(err);
+      //           // res.send(`Error ${err}`);
+      //           res.send({
+      //             success: false,
+      //             message: "Theres a problem with the sent file",
+      //           });
+      //         });
+      //     } catch (error) {
+      //       console.log("Error", error);
+      //       res.send({
+      //         success: false,
+      //         message: "Error in file provided",
+      //       });
+      //     }
+      //   });
     }
   } catch (error) {
-    res.status(500).send(error);
+    console.log("error", error);
+    res.status(500).send({ "error processing request": error });
   }
 });
 

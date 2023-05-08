@@ -1,4 +1,3 @@
-const express = require("express");
 const { database, baseIp, port } = require("../config");
 
 const authenticateSession = async (req, res, next) => {

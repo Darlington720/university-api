@@ -292,18 +292,31 @@ router.post("/updateClassTimetable", async (req, res) => {
 router.delete("/deleteLecture/:tt_id", async (req, res) => {
   const { tt_id } = req.params;
 
-  database("lecture_timetable")
-    .where("tt_id", tt_id)
-    .del()
-    .then((data) => {
-      res.send({
-        success: true,
-        result: "Lecture deleted Successfully",
-      });
-    })
-    .catch((err) => {
-      console.log("err", err);
+  const lectures = await database("lectures")
+    .where("l_tt_id", tt_id)
+    .select("*");
+
+  // console.log("the lectures", lectures);
+
+  if (lectures.length > 0) {
+    return res.send({
+      success: false,
+      result: "Cant delete lecture that is already initiated by the lecturer",
     });
+  } else {
+    database("lecture_timetable")
+      .where("tt_id", tt_id)
+      .del()
+      .then((data) => {
+        return res.send({
+          success: true,
+          result: "Lecture deleted Successfully",
+        });
+      })
+      .catch((err) => {
+        console.log("err", err);
+      });
+  }
 });
 
 router.post("/examTT", (req, res) => {

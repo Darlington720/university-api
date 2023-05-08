@@ -635,8 +635,17 @@ router.get("/lastUploadDateForFees", (req, res) => {
     .select("*")
     .from("uploaded_excel_forms_fees")
     .then((data) => {
-      res.send(data[data.length - 1]);
-    });
+      res.send({
+        success: true,
+        data: data[data.length - 1],
+      });
+    })
+    .catch((err) =>
+      res.status(500).send({
+        success: false,
+        data: err,
+      })
+    );
 });
 
 module.exports = router;

@@ -45,9 +45,7 @@ router.post("/login", (req, res) => {
     .from("users")
     .then(async (u) => {
       // console.log(user);
-      const user = u.map((row) =>
-        _.omit(row, ["password", "access_id", "access_pwd", "token"])
-      );
+      const user = u.map((row) => _.omit(row, ["password"]));
       if (!user[0]) {
         res.status(400).json({ error: "Invalid email or password" });
       } else {
@@ -148,18 +146,12 @@ router.post("/login", (req, res) => {
             })
             .select("*");
 
-          if (assignedRole[0]) {
-            res.send({
-              ...user[0],
-              assignedRole: assignedRole[0],
-              imageUrl: `http://${baseIp}:${port}/assets/${user[0].user_image}`,
-              active_auth: sessionToken,
-            });
-          } else {
-            res.status(400).json({
-              error: `${user[0].userfull_name} doesn't have a role yet on the system, please head to the respective office to be assigned a role`,
-            });
-          }
+          res.send({
+            ...user[0],
+            assignedRole: assignedRole[0] ? assignedRole[0] : null,
+            imageUrl: `http://${baseIp}:${port}/assets/${user[0].user_image}`,
+            active_auth: sessionToken,
+          });
         }
       }
     })

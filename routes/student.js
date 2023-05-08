@@ -50,7 +50,7 @@ router.get("/studentEnrollmentInCurrentSem/:stu_no", async (req, res) => {
 
 router.post("/saveStudentEnrollment", async (req, res) => {
   //save the records, but the student can't go back to previous semesters
-  console.log("body", req.body);
+  // console.log("body", req.body);
   try {
     const { stu_no, study_yr, sem, sem_half, year } = req.body;
 
@@ -297,7 +297,7 @@ router.post("/myCourseUnitsToday/", (req, res) => {
   // console.log(lectures.split(","));
 
   // console.log("is Array result", Array.isArray(req.body));
-  console.log("the body", req.body);
+  // console.log("the body", req.body);
   // console.log("from the client ", req.body.day);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -401,7 +401,7 @@ router.post("/myCourseUnitsToday/", (req, res) => {
       // console.log("The lectures", data);
 
       data.map((item) => {
-        console.log("THe item", item);
+        // console.log("THe item", item);
         JSON.parse(req.body.myArray).map((reqItem, index) => {
           let trimmedStr;
           if (reqItem.includes("-")) {
@@ -545,7 +545,7 @@ router.post("/addSelectedCourseUnit", async (req, res) => {
   const { stu_no, course_id, course_name, course_code, original_course_id } =
     req.body;
   let status = false;
-  console.log("sent course unit", req.body);
+  // console.log("sent course unit", req.body);
   const studentSelectedCourseUnits = await database
     .from("stu_selected_course_units")
     .where(function () {

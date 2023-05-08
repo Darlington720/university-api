@@ -1,7 +1,9 @@
 const express = require("express");
 var knex = require("knex");
 const router = express.Router();
+const _ = require("lodash");
 const { database } = require("../config");
+
 const { sendPushNotifications } = require("../pushNotifications");
 
 //get the data about lectures that already started
@@ -338,134 +340,229 @@ router.get("/getEnrolledStudents/:course_id", (req, res) => {
 
   database("stu_selected_course_units")
     .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
-
     .leftJoin(
       "students_biodata",
       "stu_selected_course_units.stu_id",
       "=",
       "students_biodata.stdno"
     )
-    // .leftJoin(
-    //   "class_reps",
-    //   "stu_selected_course_units.stu_id",
-    //   "=",
-    //   "class_reps.class_rep_id"
-    // )
     .select(
       "stu_selected_course_units.c_id",
       "stu_selected_course_units.course_id",
       "stu_selected_course_units.stu_id",
-      // "lecture_members.is_class_rep",
       "students_biodata.progcode",
       "users.userfull_name",
       "users.role"
     )
+    .where(function () {
+      if (course_id.includes("-")) {
+        this.where("stu_selected_course_units.course_id", "=", course_id);
+      } else {
+        this.where(function () {
+          this.where(
+            "stu_selected_course_units.course_id",
+            "=",
+            course_id
+          ).orWhere(
+            "stu_selected_course_units.course_id",
+            "like",
+            course_id + "-%"
+          );
+        });
+      }
+    })
     .orderBy("users.userfull_name")
-    // .select("*")
-    // .select(
-    //   "lecture_members.id",
-    //   "lecture_members.date",
-    //   "lecture_members.lecture_id",
-    //   "lecture_members.is_class_rep",
-    //   "lecture_members.status",
-    //   "lecture_members.joined_at",
-    //   "lecture_members.rating",
-    //   "users.role",
-    //   "users.userfull_name",
-    //   "users.stu_no",
-    //   "students_biodata.progcode"
-    // )
-
-    // .where({
-    //   course_id,
-    // })
-    .then(async (enrolledStudents) => {
-      console.log("course id", course_id);
-      let data = [];
-
-      enrolledStudents.map((student) => {
-        if (course_id.includes("-")) {
-          // we need the students for the specific study time
-          if (course_id === student.course_id) {
-            data.push(student);
-          }
-        } else {
-          if (student.course_id.includes("-")) {
-            // console.log("Contains the dash", student.course_id);
-            let char_index = student.course_id.lastIndexOf("-");
-            let trimmedStr = student.course_id.slice(0, char_index);
-            // console.log("The rimmed version ---- ", trimmedStr);
-            if (course_id === trimmedStr) {
-              data.push(student);
-            }
-          } else {
-            if (course_id === student.course_id) {
-              data.push(student);
-            }
-          }
-
-          // console.log("trimmed???", trimmedStr);
-        }
-      });
-
-      // console.log("THe resulting data", data);
-
+    .then(async (result) => {
       const fetch_1 = async () => {
         const classReps = await database("class_reps").select("*").where({
           for_wc_cu: course_id,
         });
 
-        const result = data.map((enrolledStu) => {
-          const itemA = classReps.find(
+        // const result = data.map((enrolledStu) => {
+        //   const itemA = classReps.find(
+        //     (cr) => enrolledStu.stu_id === cr.class_rep_id
+        //   );
+        //   if (itemA) {
+        //     return { ...enrolledStu, is_class_rep: 1 };
+        //   }
+        //   return enrolledStu;
+        // });
+
+        const resultx = _.map(result, (enrolledStu) => {
+          const itemA = _.find(
+            classReps,
             (cr) => enrolledStu.stu_id === cr.class_rep_id
           );
-          if (itemA) {
-            return { ...enrolledStu, is_class_rep: 1 };
-          }
-          return enrolledStu;
+          return itemA ? { ...enrolledStu, is_class_rep: 1 } : enrolledStu;
         });
 
-        return result;
+        return resultx;
       };
 
-      const result = await fetch_1();
+      const result2 = await fetch_1();
 
-      res.send(result);
-
-      // database("class_reps")
-      //   .select("*")
-      //   .where({
-      //     for_wc_cu: course_id,
-      //   })
-      //   .then((data2) => {
-      //     let arr = [];
-
-      //     if (data2.length == 0) {
-      //       res.send(data);
-      //     } else {
-      //       for (let i = 0; i < data2.length; i++) {
-      //         let foundIndex = data.findIndex(
-      //           (student) => student.stu_id === data2[i].class_rep_id
-      //         );
-      //         if (foundIndex !== -1) {
-      //           // data[foundIndex] = { ...data[foundIndex], ...data2[i] };
-      //           data[foundIndex] = { ...data[foundIndex], is_class_rep: 1 };
-      //         } else {
-      //           data.push(data2[i]);
-      //         }
-      //       }
-      //       res.send(data);
-      //     }
-      //   })
-      //   .catch((err) => {
-      //     console.log("Error in getting enrolled students", err);
-      //   });
-
-      // res.send(data);
+      res.send(result2);
     })
     .catch((err) => {
       console.log("Error in getting enrolled students", err);
     });
+
+  // database("stu_selected_course_units")
+  //   .join("users", "stu_selected_course_units.stu_id", "=", "users.stu_no")
+  //   .leftJoin(
+  //     "students_biodata",
+  //     "stu_selected_course_units.stu_id",
+  //     "=",
+  //     "students_biodata.stdno"
+  //   )
+  //   // .leftJoin(
+  //   //   "class_reps",
+  //   //   "stu_selected_course_units.stu_id",
+  //   //   "=",
+  //   //   "class_reps.class_rep_id"
+  //   // )
+  //   .select(
+  //     "stu_selected_course_units.c_id",
+  //     "stu_selected_course_units.course_id",
+  //     "stu_selected_course_units.stu_id",
+  //     // "lecture_members.is_class_rep",
+  //     "students_biodata.progcode",
+  //     "users.userfull_name",
+  //     "users.role"
+  //   )
+  //   // .whereIn("course_id", [
+  //   //   course_id,
+  //   //   `${course_id}-DAY`,
+  //   //   `${course_id}-WEEKEND`,
+  //   //   `${course_id}-DISTANCE`,
+  //   // ])
+  //   .where((builder) => {
+  //     builder.where('course_id', course_id)
+  //       .orWhere((subBuilder) => {
+  //         subBuilder.where('course_id', 'like', '%-DAY')
+  //           .andWhere('course_id', 'like', `%${course_id}%`);
+  //       });
+  //   })
+  //   .orderBy("users.userfull_name")
+  //   // .select("*")
+  //   // .select(
+  //   //   "lecture_members.id",
+  //   //   "lecture_members.date",
+  //   //   "lecture_members.lecture_id",
+  //   //   "lecture_members.is_class_rep",
+  //   //   "lecture_members.status",
+  //   //   "lecture_members.joined_at",
+  //   //   "lecture_members.rating",
+  //   //   "users.role",
+  //   //   "users.userfull_name",
+  //   //   "users.stu_no",
+  //   //   "students_biodata.progcode"
+  //   // )
+
+  //   // .where({
+  //   //   course_id,
+  //   // })
+  //   .then(async (enrolledStudents) => {
+  //     console.log("course id", course_id);
+  //     // let data = [];
+
+  //     // enrolledStudents.map((student) => {
+  //     //   if (course_id.includes("-")) {
+  //     //     // we need the students for the specific study time
+  //     //     if (course_id === student.course_id) {
+  //     //       data.push(student);
+  //     //     }
+  //     //   } else {
+  //     //     if (student.course_id.includes("-")) {
+  //     //       // console.log("Contains the dash", student.course_id);
+  //     //       let char_index = student.course_id.lastIndexOf("-");
+  //     //       let trimmedStr = student.course_id.slice(0, char_index);
+  //     //       // console.log("The rimmed version ---- ", trimmedStr);
+  //     //       if (course_id === trimmedStr) {
+  //     //         data.push(student);
+  //     //       }
+  //     //     } else {
+  //     //       if (course_id === student.course_id) {
+  //     //         data.push(student);
+  //     //       }
+  //     //     }
+
+  //     //     // console.log("trimmed???", trimmedStr);
+  //     //   }
+  //     // });
+
+  //     // let data = _.filter(enrolledStudents, (student) => {
+  //     //   if (course_id.includes("-")) {
+  //     //     return course_id === student.course_id;
+  //     //   } else {
+  //     //     if (student.course_id.includes("-")) {
+  //     //       let trimmedStr = _.trimEnd(
+  //     //         student.course_id,
+  //     //         _.lastIndexOf(student.course_id, "-")
+  //     //       );
+  //     //       return course_id === trimmedStr;
+  //     //     } else {
+  //     //       return course_id === student.course_id;
+  //     //     }
+  //     //   }
+  //     // });
+
+  //     const data = enrolledStudents.reduce((acc, student) => {
+  //       if (course_id.includes("-")) {
+  //         if (course_id === student.course_id) {
+  //           acc.push(student);
+  //         }
+  //       } else {
+  //         if (student.course_id.includes("-")) {
+  //           let char_index = student.course_id.lastIndexOf("-");
+  //           let trimmedStr = student.course_id.slice(0, char_index);
+  //           if (course_id === trimmedStr) {
+  //             acc.push(student);
+  //           }
+  //         } else {
+  //           if (course_id === student.course_id) {
+  //             acc.push(student);
+  //           }
+  //         }
+  //       }
+  //       return acc;
+  //     }, []);
+
+  //     // console.log("THe resulting data", data);
+
+  //     const fetch_1 = async () => {
+  //       const classReps = await database("class_reps").select("*").where({
+  //         for_wc_cu: course_id,
+  //       });
+
+  //       // const result = data.map((enrolledStu) => {
+  //       //   const itemA = classReps.find(
+  //       //     (cr) => enrolledStu.stu_id === cr.class_rep_id
+  //       //   );
+  //       //   if (itemA) {
+  //       //     return { ...enrolledStu, is_class_rep: 1 };
+  //       //   }
+  //       //   return enrolledStu;
+  //       // });
+
+  //       const result = _.map(data, (enrolledStu) => {
+  //         const itemA = _.find(
+  //           classReps,
+  //           (cr) => enrolledStu.stu_id === cr.class_rep_id
+  //         );
+  //         return itemA ? { ...enrolledStu, is_class_rep: 1 } : enrolledStu;
+  //       });
+
+  //       return result;
+  //     };
+
+  //     const result = await fetch_1();
+
+  //     res.send(result);
+  //   })
+  //   .catch((err) => {
+  //     console.log("Error in getting enrolled students", err);
+  //   });
 });
 
 router.post("/updateClassRepInfo", (req, res) => {
