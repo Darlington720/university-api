@@ -53,114 +53,148 @@ router.get("/lectureTimetable", (req, res) => {
     });
 });
 
-router.post("/addExamTimetable", (req, res) => {
+router.post("/addExamTimetable", async (req, res) => {
   const { headers, timetable } = req.body;
   // console.log("Data received", req.body);
   const d = new Date();
   const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 
   //inserting into the exams group
-  database
+  const existingExamGrp = await database
     .select("*")
     .where({
       school_id: headers.school.value,
       study_time_id: headers.studyTime.value,
-      month: headers.month.value,
-      year: headers.year.value,
+      campus_id: headers.campus.value,
+      yr_sem_id: headers.year_sem.value,
     })
     .from("exam_groups")
-    .then((d) => {
-      if (d.length == 0) {
-        database("exam_groups")
-          .insert({
-            school_id: headers.school.value,
-            study_time_id: headers.studyTime.value,
-            month: headers.month.value,
-            year: headers.year.value,
-          })
-          .then((data) => {
-            console.log("Finished storing data in exam groups");
+    .first();
 
+  try {
+    if (!existingExamGrp) {
+      const result = await database("exam_groups").insert({
+        school_id: headers.school.value,
+        study_time_id: headers.studyTime.value,
+        campus_id: headers.campus.value,
+        yr_sem_id: headers.year_sem.value,
+      });
+
+      console.log("Result from insert", result[0]);
+      const fieldsToInsert = timetable.map((field) => ({
+        exam_group_id: result[0],
+        date:
+          new Date(field.date).getFullYear() +
+          "-" +
+          (new Date(field.date).getMonth() + 1) +
+          "-" +
+          new Date(field.date).getDate(),
+        session_id: field.session.value,
+        room_id: field.room.value,
+        course_unit_code: field.courseUnit.value.course_code,
+        course_unit_name: field.courseUnit.value.course_name,
+      }));
+
+      database("exam_timetable")
+        .insert(fieldsToInsert)
+        .then(() => {
+          res.status(200).send({
+            success: true,
+            message: "Successfully saved exam timetable!",
+          });
+        })
+        .catch((err) => {
+          console.log("Failed to save the data", err);
+          res.status(400).send("fail");
+        });
+
+      // res.status(200).send("Received the data");
+    } else {
+      console.log("result from select", existingExamGrp);
+      const fieldsToInsert = timetable.map((field) => ({
+        exam_group_id: existingExamGrp.exam_group_id,
+        date:
+          new Date(field.date).getFullYear() +
+          "-" +
+          (new Date(field.date).getMonth() + 1) +
+          "-" +
+          new Date(field.date).getDate(),
+        session_id: field.session.value,
+        room_id: field.room.value,
+        course_unit_code: field.courseUnit.value.course_code,
+        course_unit_name: field.courseUnit.value.course_name,
+      }));
+
+      database
+        .transaction((trx) => {
+          const insertPromises = fieldsToInsert.map((field) =>
             database
               .select("*")
+              .from("exam_timetable")
               .where({
-                school_id: headers.school.value,
-                study_time_id: headers.studyTime.value,
-                month: headers.month.value,
-                year: headers.year.value,
+                exam_group_id: field.exam_group_id,
+                date: field.date,
+                session_id: field.session_id,
+                room_id: field.room_id,
+                course_unit_code: field.course_unit_code,
               })
-              .from("exam_groups")
-              .then((data2) => {
-                console.log("data here", data2);
-                const fieldsToInsert = timetable.map((field) => ({
-                  exam_group_id: data2[0].exam_group_id,
-                  date:
-                    new Date(field.date).getFullYear() +
-                    "-" +
-                    (new Date(field.date).getMonth() + 1) +
-                    "-" +
-                    new Date(field.date).getDate(),
-                  session_id: field.session.value,
-                  room_id: field.room.value,
-                  course_unit_code: field.courseUnit.value,
-                  course_unit_name: field.courseUnit.label,
-                }));
-
-                database("exam_timetable")
-                  .insert(fieldsToInsert)
-                  .then(() => {
-                    res.status(200).send("Success");
-                  })
-                  .catch((err) => {
-                    console.log("Failed to save the data", err);
-                    res.status(400).send("fail");
-                  });
-              });
-
-            // res.status(200).send("Received the data");
-          })
-          .catch((err) => {
-            console.log("Fail", err);
-            res.status(400).send("Failed to send the data " + err);
-          });
-      } else {
-        database
-          .select("*")
-          .where({
-            school_id: headers.school.value,
-            study_time_id: headers.studyTime.value,
-            month: headers.month.value,
-            year: headers.year.value,
-          })
-          .from("exam_groups")
-          .then((data2) => {
-            console.log("data here", data2);
-            const fieldsToInsert = timetable.map((field) => ({
-              exam_group_id: data2[0].exam_group_id,
-              date:
-                new Date(field.date).getFullYear() +
-                "-" +
-                (new Date(field.date).getMonth() + 1) +
-                "-" +
-                new Date(field.date).getDate(),
-              session_id: field.session.value,
-              room_id: field.room.value,
-              course_unit_code: field.courseUnit.value,
-              course_unit_name: field.courseUnit.label,
-            }));
-
-            database("exam_timetable")
-              .insert(fieldsToInsert)
-              .then(() => {
-                res.status(200).send("Success");
+              .transacting(trx)
+              .then((rows) => {
+                if (rows.length === 0) {
+                  return database
+                    .insert(field)
+                    .into("exam_timetable")
+                    .transacting(trx);
+                }
               })
-              .catch((err) => {
-                console.log("Failed to save the data", err);
-                res.status(400).send("fail");
-              });
+          );
+
+          return Promise.all(insertPromises)
+            .then(trx.commit)
+            .catch(trx.rollback);
+        })
+        .then(() => {
+          res.status(200).send({
+            success: true,
+            message: "Successfully saved exam timetable!!!",
           });
-      }
+        })
+        .catch((err) => {
+          console.log("Failed to save the data", err);
+          res.status(400).send({
+            success: false,
+            message: `Error encountered ${err}`,
+          });
+        });
+    }
+  } catch (err) {
+    console.log("Fail", err);
+    res.status(400).send({
+      success: false,
+      message: "Failed to save the data " + err,
     });
+  }
+});
+
+router.post("/examsInRoom", async (req, res) => {
+  const exams = await database
+    .select("course_unit_code", "course_unit_name")
+    .from("exam_timetable")
+    .where({
+      room_id: req.body.room.value,
+      session_id: req.body.session.value,
+      date:
+        new Date(req.body.date).getFullYear() +
+        "-" +
+        (new Date(req.body.date).getMonth() + 1) +
+        "-" +
+        new Date(req.body.date).getDate(),
+    });
+
+  res.send({
+    success: true,
+    result: exams,
+  });
 });
 
 router.get("/requirements/class_tt", async (req, res) => {
@@ -185,6 +219,60 @@ router.get("/requirements/class_tt", async (req, res) => {
       modules,
       sessions,
       rooms,
+    },
+  });
+});
+
+router.get("/requirements/exam_tt", async (req, res) => {
+  // schools
+  const schools = await database.select("*").from("schools");
+
+  // const staff_members = await database.select("*").from("staff");
+
+  // study times
+  const study_times = await database.select("*").from("study_time");
+
+  // modules
+  const modules = await database.select("*").from("modules");
+
+  // sessions
+  const sessions = await database.select("*").from("exam_sessions");
+
+  //rooms
+  const rooms = await database.select("*").from("rooms");
+
+  // year - sem
+  const year_sem = await database.select("*").from("year_sem");
+
+  res.send({
+    success: true,
+    result: {
+      schools,
+      study_times,
+      modules,
+      sessions,
+      rooms,
+      year_sem,
+    },
+  });
+});
+
+router.get("/requirements/assign_inv", async (req, res) => {
+  //Staff
+  const staff_members = await database.select("*").from("staff");
+
+  //rooms
+  const rooms = await database.select("*").from("rooms");
+
+  // sessions
+  const sessions = await database.select("*").from("exam_sessions");
+
+  res.send({
+    success: true,
+    result: {
+      sessions,
+      rooms,
+      staff_members,
     },
   });
 });
