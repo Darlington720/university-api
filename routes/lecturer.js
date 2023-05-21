@@ -258,6 +258,31 @@ router.post("/lecturerCourseunits/", (req, res) => {
   // res.send(newArr);
 });
 
+router.get("/image/:id", (req, res) => {
+  const { id } = req.params;
+  //console.log("Id", id);
+  console.log("Current directory", __dirname);
+  // res.send("http://10.7.0.22:9000/assets/jacket.jpg");
+
+  fs.readFile(
+    __dirname + ".." + `/public/assets/${id.toUpperCase()}.jpg`,
+    (err, data) => {
+      if (err) {
+        res.sendFile(__dirname + `/public/assets/ph2.jpg`);
+      } else {
+        res.sendFile(
+          __dirname + ".." + `/public/assets/${id.toUpperCase()}.jpg`
+        );
+      }
+    }
+  );
+  // try {
+  //   res.sendFile(__dirname + `/public/assets/${id}.jpg`);
+  // } catch (error) {
+  //   res.sendFile(__dirname + `/public/assets/akampa.jpg`);
+  // }
+});
+
 router.get("/myAssignedRooms/:staff_id/:date", async (req, res) => {
   const { date, staff_id } = req.params;
 
