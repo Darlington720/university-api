@@ -1449,70 +1449,84 @@ router.get("/api/getExamInfo/:course_unit_name", (req, res) => {
     });
 });
 
-router.post("/addInvigilator", async (req, res) => {
-  const { room, invigilators, session, date, assigned_by } = req.body;
+router.post("/api/addInvigilator", (req, res) => {
+  const { room, invigilators, session, date, status, assigned_by } = req.body;
   // console.log("Date received", date);
   console.log("data got here", req.body);
   const d = new Date(date);
   const formatedDate =
     d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 
-  // const d2 = new Date();
-  // const time = d2.getHours() + ":" + d2.getMinutes() + ":" + d2.getSeconds();
+  console.log("Formated", formatedDate);
 
-  // first let me check if there is an existing exam
-
-  let examId;
-
-  const existingExam = await database
+  const d2 = new Date();
+  const time = d2.getHours() + ":" + d2.getMinutes() + ":" + d2.getSeconds();
+  database
     .select("*")
     .where({
+      lecturer_id: invigilators[0].value,
       room_id: room.value,
-      date: formatedDate,
+      assigned_date: formatedDate,
       session_id: session.value,
+      status,
+      assigned_by,
+      // time_start: d2.toLocaleTimeString(),
     })
-    .from("exam_details");
+    .from("invigilators_sammary")
+    .then((invigilatoData) => {
+      if (invigilatoData.length == 0) {
+        database("invigilators_sammary")
+          .insert({
+            lecturer_id: invigilators[0].value,
+            room_id: room.value,
+            assigned_date: formatedDate,
+            session_id: session.value,
+            status,
+            assigned_by,
+            time_start: time,
+          })
+          .then((data) => {
+            const fieldsToInsert = invigilators.map((invigilator) => ({
+              lecturer_id: invigilator.value,
+              room_id: room.value,
+              assigned_date: formatedDate,
+              session_id: session.value,
+              status,
+              assigned_by,
+              time_start: time,
+            }));
+            //console.log(req.body);
 
-  if (!existingExam[0]) {
-    const result = await database("exam_details").insert({
-      room_id: room.value,
-      date: formatedDate,
-      session_id: session.value,
+            database("invigilators")
+              .insert(fieldsToInsert)
+              .then((data) => res.status(200).send("Received the data"))
+              .catch((err) =>
+                res.status(400).send("Failed to send the data " + err)
+              );
+          })
+          .catch((err) =>
+            res.status(400).send("Failed to send the data " + err)
+          );
+      } else {
+        const fieldsToInsert = invigilators.map((invigilator) => ({
+          lecturer_id: invigilator.value,
+          room_id: room.value,
+          assigned_date: formatedDate,
+          session_id: session.value,
+          status,
+          assigned_by,
+          time_start: time,
+        }));
+        //console.log(req.body);
+
+        database("invigilators")
+          .insert(fieldsToInsert)
+          .then((data) => res.status(200).send("Received the data"))
+          .catch((err) =>
+            res.status(400).send("Failed to send the data " + err)
+          );
+      }
     });
-
-    console.log("new exam", result);
-
-    examId = result[0];
-  } else {
-    // console.log("existing exam", existingExam);
-    examId = existingExam[0].ed_id;
-  }
-
-  // check for the existance of a staff_member
-
-  const x = await invigilators.map(async (inv) => {
-    const existingInv = await database
-      .select("*")
-      .where({
-        exam_details_id: examId,
-        staff_id: inv.value,
-      })
-      .from("invigilators");
-
-    if (!existingInv[0]) {
-      const result = await database("invigilators").insert({
-        exam_details_id: examId,
-        staff_id: inv.value,
-      });
-    }
-  });
-
-  Promise.all(x).then(() => {
-    res.send({
-      success: true,
-      message: "Invigilators assigned successfully",
-    });
-  });
 });
 
 router.post("/api/removeInvigilator", (req, res) => {
