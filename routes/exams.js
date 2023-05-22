@@ -1,9 +1,8 @@
 const express = require("express");
-const path = require("path");
 const router = express.Router();
-const multer = require("multer");
 const { database } = require("../config");
 
+<<<<<<< HEAD
 // Configure multer to store uploaded files in a desired location
 const storage = multer.diskStorage({
   destination: path.resolve(__dirname, "..", "upload/evidence"),
@@ -86,93 +85,46 @@ router.get("/student/:stdno", async (req, res) => {
     )
     .andWhere("students_in_exam_room.stu_no", "=", stdno);
   // .groupBy("course_unit_code");
+=======
+router.post("/api/endRoomSession", (req, res) => {
+  const { lecturerId, roomId, assignedDate, sessionId } = req.body;
+>>>>>>> parent of 9e76b2f... Updates and modifications to the exams module
 
-  //exemptions
-  const studentExemptions = await database
+  const d = new Date(req.body.assigned_date);
+  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  console.log("Room DATA", req.body);
+  const currentDate = new Date();
+  database
     .select("*")
-    .from("exemptions")
-    .where("stdno", "=", stdno);
-
-  if (!course_units_did_by_student[0]) {
-    return res.send({
-      success: true,
-      result: {
-        biodata: student[0],
-        payments,
-        study_yr: year,
-        current_sem: sem,
-        registration_status,
-        student_cus: studentExemptions,
-      },
-    });
-  }
-  const x = course_units_did_by_student.map(async (cu) => {
-    const booklets = await database
-      .select("*")
-      .from("student_registered_booklets")
-      .where({
-        stu_in_ex_room_id: cu.se_id,
-      });
-
-    return student_cus.push({ ...cu, booklets });
-  });
-
-  Promise.all(x)
-    .then(() => {
-      res.send({
-        success: true,
-        result: {
-          biodata: student[0],
-          payments,
-          study_yr: year,
-          current_sem: sem,
-          registration_status,
-          student_cus: [...student_cus, ...studentExemptions],
-        },
-      });
+    .from("invigilators")
+    .where({
+      room_id: req.body.room_id,
+      assigned_date: date,
+      session_id: req.body.session_id,
+      // lecturer_id: req.body.staff_id,
     })
-    .catch((err) => {
-      res.send({
-        success: false,
-        message: "Error handling the request" + err,
-      });
+    .update({
+      status: 2,
+      time_end: currentDate.toLocaleTimeString(),
+    })
+    .then((data2) => {
+      database
+        .select("*")
+        .from("invigilators_sammary")
+        .where({
+          room_id: req.body.room_id,
+          assigned_date: date,
+          session_id: req.body.session_id,
+        })
+        .update({
+          status: 2,
+          time_end: currentDate.toLocaleTimeString(),
+        })
+        .then((data) => {
+          console.log("Updated the sammary to end as well");
+        });
+      res.send(`ended`);
     });
-});
-
-router.post("/end_room_session", async (req, res) => {
-  const { ed_id, staff_id } = req.body;
-
-  console.log("Receiving ", req.body);
-
-  const d = new Date();
-  const formatedDate =
-    d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
-
-  console.log("Formated", formatedDate);
-  console.log("Formated time", d.toLocaleTimeString());
-
-  try {
-    const room_details_update = await database
-      .select("*")
-      .from("exam_details")
-      .where({
-        ed_id,
-      })
-      .update({
-        ended_at: d.toLocaleTimeString(),
-        ended_by: staff_id,
-      });
-
-    res.send({
-      success: true,
-      message: "Successfully ended the session",
-    });
-  } catch (error) {
-    res.send({
-      success: false,
-      message: "error updating the session data" + error,
-    });
-  }
 });
 
 router.post("/api/saveRegisteredModule", (req, res) => {
@@ -210,8 +162,8 @@ router.post("/api/saveRegisteredModule", (req, res) => {
         .select("*")
         .from("courseunits_in_exam_rooms")
         .where({
-          module_code: req.body.module_code,
-          module_title: req.body.module_title,
+          course_unit_code: req.body.module_code,
+          course_unit_name: req.body.module_title,
           room_id: req.body.room_id,
           session_id: req.body.session_id,
           assigned_date: assignedDate,
@@ -220,8 +172,8 @@ router.post("/api/saveRegisteredModule", (req, res) => {
           if (data.length == 0) {
             database("courseunits_in_exam_rooms")
               .insert({
-                module_code: req.body.module_code,
-                module_title: req.body.module_title,
+                course_unit_code: req.body.module_code,
+                course_unit_name: req.body.module_title,
                 room_id: req.body.room_id,
                 session_id: req.body.session_id,
                 assigned_date: assignedDate,
@@ -237,7 +189,7 @@ router.post("/api/saveRegisteredModule", (req, res) => {
     .catch((err) => res.status(400).send("Failed to send the data " + err));
 });
 
-router.post("/examHandin", async (req, res) => {
+router.post("/api/examHandin", (req, res) => {
   // const { room, invigilators, session, date, status, assigned_by } = req.body;
   console.log("Data Received for handin", req.body);
   const d = new Date();
@@ -247,126 +199,125 @@ router.post("/examHandin", async (req, res) => {
   console.log("Formated", formatedDate);
   console.log("Formated time", d.toLocaleTimeString());
 
-  try {
-    const insert = await database("students_in_exam_room")
-      .where({
-        se_id: req.body.se_id,
-      })
-      .update({
-        handed_in: 1,
-        time_handin: d.toLocaleTimeString(),
-        date_handin: formatedDate,
-      });
-
-    res.status(200).send({
-      success: true,
-      message: "received the data",
-    });
-  } catch (error) {
-    res.status(400).send({
-      success: false,
-      message: "Failed to send the data " + error,
-    });
-  }
+  database("students_handin")
+    .insert({
+      module_reg_id: req.body.moduleRegId,
+      time_handin: d.toLocaleTimeString(),
+      date_handin: formatedDate,
+    })
+    .then((data) => {
+      res.status(200).send("received the data");
+    })
+    .catch((err) => res.status(400).send("Failed to send the data " + err));
 });
 
-router.post("/addStudentBookletNos", async (req, res) => {
+router.post("/api/addStudentBookletNos", (req, res) => {
   // const { room, invigilators, session, date, status, assigned_by } = req.body;
   console.log("Data Received", req.body);
-  const { stu_no, bookletNos, course_unit_name, course_code, ed_id, staff_id } =
-    req.body;
-  let existingUnit_id;
-  let existingStuInRoom_id;
+  let finished = false;
+  const d = new Date();
+  const formatedDate =
+    d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
 
-  // first we are going to save the required data in course_units_in_exam_room
-  const existingUnit = await database
-    .select("*")
-    .from("courseunits_in_exam_rooms")
-    .where({
-      ed_id,
-      module_code: course_code,
-      module_title: course_unit_name,
-    });
+  console.log("Formated", formatedDate);
+  console.log("Formated time", d.toLocaleTimeString());
 
-  if (!existingUnit[0]) {
-    const insertResult = await database("courseunits_in_exam_rooms").insert({
-      ed_id,
-      module_code: course_code,
-      module_title: course_unit_name,
-    });
-    existingUnit_id = insertResult[0];
-  } else {
-    existingUnit_id = existingUnit[0].cunit_in_ex_room_id;
-  }
+  const fieldsToInsert = req.body.bookletNos.map((b) => ({
+    module_reg_id: req.body.module_reg_id,
+    booklet_no: b.booklet_no,
+  }));
 
-  // then insert the student_no in the students_in_exam_room table
-  // but let me first check if there is an existing exact record
-  const existingStudentInRoom = await database
-    .select("*")
-    .from("students_in_exam_room")
-    .where({
-      stu_no,
-      cu_in_ex_id: existingUnit_id,
-      staff_id,
-    });
+  // console.log("Fields to insert", fieldsToInsert);
 
-  // console.log(existingStudentInRoom);
-
-  if (!existingStudentInRoom[0]) {
-    const insertStuResult = await database("students_in_exam_room").insert({
-      stu_no,
-      cu_in_ex_id: existingUnit_id,
-      staff_id,
-    });
-    existingStuInRoom_id = insertStuResult[0];
-  } else {
-    existingStuInRoom_id = existingStudentInRoom[0].se_id;
-  }
-
-  // then insert the booklet numbers in student_registered_booklets table
-  const x = bookletNos.map(async (b) => {
-    const existingBooklet = await database
+  // const query = database("student_registered_booklets")
+  //   .insert(fieldsToInsert)
+  //   .toSQL();
+  // const sql = query.sql.replace("insert", "insert ignore");
+  // database
+  //   .raw(sql, query.bindings)
+  //   .then((data) => res.status(200).send("Received the data"))
+  //   .catch((err) => res.status(400).send("Failed to send the data " + err));
+  req.body.bookletNos.map((b) => {
+    database
       .select("*")
       .from("student_registered_booklets")
       .where({
-        stu_in_ex_room_id: existingStuInRoom_id,
+        module_reg_id: req.body.module_reg_id,
         booklet_no: b.booklet_no,
+      })
+      .then((data) => {
+        if (data.length == 0) {
+          database("student_registered_booklets")
+            .insert({
+              module_reg_id: req.body.module_reg_id,
+              booklet_no: b.booklet_no,
+            })
+            .then((data) => console.log("Saved", b.booklet_no));
+          // .catch((err) =>
+          //   res.status(400).send("Failed to send the data " + err)
+          // );
+        }
       });
-
-    if (existingBooklet.length == 0) {
-      const insertBooklet = await database(
-        "student_registered_booklets"
-      ).insert({
-        stu_in_ex_room_id: existingStuInRoom_id,
-        booklet_no: b.booklet_no,
-      });
-
-      // const entireBooklet = await database
-      // .select("*")
-      // .from("student_registered_booklets")
-      // .where({
-      //   srb_id: insertBooklet[0],
-      // });
-
-      // .catch((err) =>
-      //   res.status(400).send("Failed to send the data " + err)
-      // );
-    }
   });
 
-  Promise.all(x)
-    .then(() => {
-      res.send({
-        success: true,
-        message: "Successfully Saved the data",
-      });
-    })
-    .catch((err) => {
-      res.send({
-        success: false,
-        message: "Error storing booklet number " + err,
-      });
-    });
+  res.send("Received the data");
+  // database
+  //   .select("*")
+  //   .from("student_registered_booklets")
+  //   .where({
+  //     module_reg_id: 7,
+  //     booklet_no: "6000",
+  //   })
+  //   .then((data) => {
+  //     if (data.length == 0) {
+  //       database("student_registered_booklets")
+  //         .insert(fieldsToInsert)
+  //         .then((data) => res.status(200).send("Received the data"))
+  //         .catch((err) =>
+  //           res.status(400).send("Failed to send the data " + err)
+  //         );
+  //     } else {
+  //       res.status(200).send("Received the data");
+  //     }
+  //   });
+
+  // database("student_registered_booklets")
+  //   .insert(fieldsToInsert)
+  //   .then((data) => res.status(200).send("Received the data"))
+  //   .catch((err) => res.status(400).send("Failed to send the data " + err));
+
+  // database("modules_registered")
+  //   .insert({
+  //     module_code: req.body.module_code,
+  //     module_title: req.body.module_title,
+  //     module_sem: req.body.module_sem,
+  //     module_status: req.body.module_status,
+  //     module_year: req.body.module_year,
+  //     yrsem: req.body.yrsem,
+  //     credit_units: req.body.credit_units,
+  //     stdno: req.body.stdno,
+  //     registered_by: req.body.registered_by,
+  //     time_in: d.toLocaleTimeString(),
+  //     date_start: formatedDate,
+  //   })
+  //   .then((data) => {
+  //     res.status(200).send("received the data");
+  //     // const fieldsToInsert = invigilators.map((invigilator) => ({
+  //     //   lecturer_id: invigilator.value,
+  //     //   room_id: room.value,
+  //     //   assigned_date: formatedDate,
+  //     //   session_id: session.value,
+  //     //   status,
+  //     //   assigned_by,
+  //     // }));
+  //     // //console.log(req.body);
+
+  //     // database("invigilators")
+  //     //   .insert(fieldsToInsert)
+  //     //   .then((data) => res.status(200).send("Received the data"))
+  //     //   .catch((err) => res.status(400).send("Failed to send the data " + err));
+  //   })
+  //   .catch((err) => res.status(400).send("Failed to send the data " + err));
 });
 
 router.get("/api/getStudentRegBookletNos/:moduleRegId", (req, res) => {
@@ -417,380 +368,87 @@ router.get("/api/getStudentRegisteredModules/:studentNo", (req, res) => {
     });
 });
 
-router.get("/examsDidInRoom/:ed_id", async (req, res) => {
+router.post("/api/examsDidInRoom", (req, res) => {
   // const { room, invigilators, session, date, status, assigned_by } = req.body;
-  // console.log("Data Received in room", req.body);
+  console.log("Data Received in room", req.body);
 
-  const { ed_id } = req.params;
-  let num_of_students = [];
-  // first am using the `ed_id` to get all the course units did the room
-  const courseUnitsDidInRoom = await database
+  let count = 0;
+  const d1 = new Date(req.body.assigned_date);
+  const assignedDate =
+    d1.getFullYear() + "-" + (d1.getMonth() + 1) + "-" + d1.getDate();
+
+  database
     .select("*")
     .from("courseunits_in_exam_rooms")
     .where({
-      ed_id,
-    });
-
-  if (courseUnitsDidInRoom.length == 0) {
-    return res.send({
-      success: true,
-      result: [],
-    });
-  }
-
-  // am using each each unit to get the students from the `students_in_exam_room`
-  const x = courseUnitsDidInRoom.map(async (cu) => {
-    const studentCount = await database
-      // .count("cu")
-      .from("students_in_exam_room")
-      .where({
-        cu_in_ex_id: cu.cunit_in_ex_room_id,
-      })
-      .count("cu_in_ex_id as num_of_students");
-
-    num_of_students.push({
-      id: cu.cunit_in_ex_room_id,
-      module_title: cu.module_title,
-      studentCount,
-    });
-  });
-
-  Promise.all(x).then(() => {
-    res.send({
-      success: true,
-      result: { courseUnitsDidInRoom, students: num_of_students },
-    });
-  });
-
-  // database
-  //   .select("*")
-  //   .from("courseunits_in_exam_rooms")
-  //   .where({
-  //     room_id: req.body.room_id,
-  //     session_id: req.body.session_id,
-  //     assigned_date: assignedDate,
-  //   })
-  //   .then((data) => {
-  //     console.log("ney data", data);
-  //     let newArr = [];
-
-  //     if (data.length == 0) {
-  //       res.send(data);
-  //     } else {
-  //       data.forEach((exam, index) => {
-  //         let d4 = async (callback) => {
-  //           await database
-  //             .select("*")
-  //             .from("modules_registered")
-  //             .where({
-  //               module_title: exam.course_unit_name,
-  //             })
-  //             .then((data4) => {
-  //               // res.send(data);
-  //               let data = async (callback) => {
-  //                 await database
-  //                   .select("*")
-  //                   .from("modules_registered")
-  //                   .join(
-  //                     "students_handin",
-  //                     "modules_registered.cunit_reg_id",
-  //                     "=",
-  //                     "students_handin.module_reg_id"
-  //                   )
-
-  //                   .where(
-  //                     "modules_registered.module_title",
-  //                     "=",
-  //                     exam.course_unit_name
-  //                   )
-  //                   .then((data2) => {
-  //                     // return result;
-  //                     // console.log("result ", result);
-  //                     let obj = {
-  //                       registered: data4.length,
-  //                       handed_in: data2.length,
-  //                       didnt_handin: data4.length - data2.length,
-  //                     };
-  //                     newArr.push({ ...exam, ...obj });
-  //                     callback(newArr);
-  //                     // res = result;
-  //                   });
-  //               };
-
-  //               data(function (result) {
-  //                 // console.log("Call back result", result);
-  //                 callback(result);
-  //               });
-  //             });
-  //         };
-
-  //         d4(function (result) {
-  //           if (data.length - 1 == index) {
-  //             res.send(result);
-  //           }
-  //           // console.log("Call back in loop now", result);
-  //           // callback(result)
-  //         });
-  //       });
-  //     }
-  //   });
-});
-
-router.get("/students_in_exam/:id", async (req, res) => {
-  const { id } = req.params;
-  let num_of_students = [];
-  // getting the students in the specificied exam
-  const students_in_ex_room = await database
-
-    .from("students_in_exam_room")
-    .join(
-      "students_biodata",
-      "students_in_exam_room.stu_no",
-      "=",
-      "students_biodata.stdno"
-    )
-    .select("students_biodata.name", "students_in_exam_room.*")
-    .where({
-      cu_in_ex_id: id,
-    });
-
-  if (students_in_ex_room.length == 0) {
-    return res.send({
-      success: true,
-      result: [],
-    });
-  }
-
-  res.send({
-    success: true,
-    result: students_in_ex_room,
-  });
-
-  // database
-  //   .select("*")
-  //   .from("courseunits_in_exam_rooms")
-  //   .where({
-  //     room_id: req.body.room_id,
-  //     session_id: req.body.session_id,
-  //     assigned_date: assignedDate,
-  //   })
-  //   .then((data) => {
-  //     console.log("ney data", data);
-  //     let newArr = [];
-
-  //     if (data.length == 0) {
-  //       res.send(data);
-  //     } else {
-  //       data.forEach((exam, index) => {
-  //         let d4 = async (callback) => {
-  //           await database
-  //             .select("*")
-  //             .from("modules_registered")
-  //             .where({
-  //               module_title: exam.course_unit_name,
-  //             })
-  //             .then((data4) => {
-  //               // res.send(data);
-  //               let data = async (callback) => {
-  //                 await database
-  //                   .select("*")
-  //                   .from("modules_registered")
-  //                   .join(
-  //                     "students_handin",
-  //                     "modules_registered.cunit_reg_id",
-  //                     "=",
-  //                     "students_handin.module_reg_id"
-  //                   )
-
-  //                   .where(
-  //                     "modules_registered.module_title",
-  //                     "=",
-  //                     exam.course_unit_name
-  //                   )
-  //                   .then((data2) => {
-  //                     // return result;
-  //                     // console.log("result ", result);
-  //                     let obj = {
-  //                       registered: data4.length,
-  //                       handed_in: data2.length,
-  //                       didnt_handin: data4.length - data2.length,
-  //                     };
-  //                     newArr.push({ ...exam, ...obj });
-  //                     callback(newArr);
-  //                     // res = result;
-  //                   });
-  //               };
-
-  //               data(function (result) {
-  //                 // console.log("Call back result", result);
-  //                 callback(result);
-  //               });
-  //             });
-  //         };
-
-  //         d4(function (result) {
-  //           if (data.length - 1 == index) {
-  //             res.send(result);
-  //           }
-  //           // console.log("Call back in loop now", result);
-  //           // callback(result)
-  //         });
-  //       });
-  //     }
-  //   });
-});
-
-router.post("/start_room_session", async (req, res) => {
-  const { ed_id, staff_id } = req.body;
-
-  console.log("Receiving ", req.body);
-
-  const d = new Date();
-  const formatedDate =
-    d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
-
-  console.log("Formated", formatedDate);
-  console.log("Formated time", d.toLocaleTimeString());
-
-  try {
-    const room_details_update = await database
-      .select("*")
-      .from("exam_details")
-      .where({
-        ed_id,
-      })
-      .update({
-        started_at: d.toLocaleTimeString(),
-        started_by: staff_id,
-      });
-
-    res.send({
-      success: true,
-      message: "Successfully initialized the session",
-    });
-  } catch (error) {
-    res.send({
-      success: false,
-      message: "error updating the session data" + error,
-    });
-  }
-});
-
-router.post("/save_evidence", async (req, res) => {
-  // Access the uploaded image details through req.files
-  console.log("Images received:", req.files);
-  const { stdno, ed_id, description, staff_id } = req.body;
-  console.log("the body", {
-    stdno,
-    ed_id,
-    description,
-    staff_id,
-  });
-
-  let me_id;
-
-  if (!req.files || Object.keys(req.files).length === 0) {
-    return res.status(400).send("No files were uploaded.");
-  }
-
-  const destinationDirectory = path.resolve(__dirname, "..", "upload/evidence");
-
-  //first let me store the data that is in req.body
-  const existingMalpractice = await database
-    .select("*")
-    .from("malpractice")
-    .where({
-      stdno,
-      ed_id,
-      description,
-      staff_id,
-    });
-
-  console.log("existing id", existingMalpractice);
-
-  if (!existingMalpractice[0]) {
-    const insertResult = await database("malpractice").insert({
-      stdno,
-      ed_id,
-      description,
-      staff_id,
-    });
-    me_id = insertResult[0];
-  } else {
-    me_id = existingMalpractice[0].me_id;
-  }
-
-  console.log("desination", destinationDirectory);
-
-  const x = Object.values(req.files).map(async (file) => {
-    file.mv(
-      path.join(destinationDirectory, `${Date.now()}-${file.name}`),
-      (error) => {
-        if (error) {
-          console.error("Error moving file:", error);
-        }
-      }
-    );
-
-    return await database("malpractice_evidence").insert({
-      me_id,
-      image: `${Date.now()}-${file.name}`,
-    });
-  });
-
-  // res.send("Images uploaded successfully!");
-  Promise.all(x)
-    .then(() => {
-      res.send({
-        success: true,
-        message: "Images uploaded successfully!",
-      });
+      room_id: req.body.room_id,
+      session_id: req.body.session_id,
+      assigned_date: assignedDate,
     })
-    .catch((err) => {
-      console.log("Error", err);
-      res.send({
-        success: false,
-        message: "error the images",
-      });
+    .then((data) => {
+      console.log("ney data", data);
+      let newArr = [];
+
+      if (data.length == 0) {
+        res.send(data);
+      } else {
+        data.forEach((exam, index) => {
+          let d4 = async (callback) => {
+            await database
+              .select("*")
+              .from("modules_registered")
+              .where({
+                module_title: exam.course_unit_name,
+              })
+              .then((data4) => {
+                // res.send(data);
+                let data = async (callback) => {
+                  await database
+                    .select("*")
+                    .from("modules_registered")
+                    .join(
+                      "students_handin",
+                      "modules_registered.cunit_reg_id",
+                      "=",
+                      "students_handin.module_reg_id"
+                    )
+
+                    .where(
+                      "modules_registered.module_title",
+                      "=",
+                      exam.course_unit_name
+                    )
+                    .then((data2) => {
+                      // return result;
+                      // console.log("result ", result);
+                      let obj = {
+                        registered: data4.length,
+                        handed_in: data2.length,
+                        didnt_handin: data4.length - data2.length,
+                      };
+                      newArr.push({ ...exam, ...obj });
+                      callback(newArr);
+                      // res = result;
+                    });
+                };
+
+                data(function (result) {
+                  // console.log("Call back result", result);
+                  callback(result);
+                });
+              });
+          };
+
+          d4(function (result) {
+            if (data.length - 1 == index) {
+              res.send(result);
+            }
+            // console.log("Call back in loop now", result);
+            // callback(result)
+          });
+        });
+      }
     });
-});
-
-router.post("/exemption", async (req, res) => {
-  const { stdno, module_code, module_title, exempted_by } = req.body;
-
-  console.log("the body for exemption", req.body);
-
-  // check for existing exemption
-  const existingExemption = await database
-    .select("*")
-    .from("exemptions")
-    .where({
-      stdno,
-      module_code,
-      module_title,
-      exempted_by,
-    });
-
-  if (existingExemption[0]) {
-    return res.send({
-      success: true,
-      message: "Student already exempted!",
-    });
-  }
-
-  if (!existingExemption[0]) {
-    const insertResult = await database("exemptions").insert({
-      stdno,
-      module_code,
-      module_title,
-      exempted_by,
-    });
-  }
-
-  res.send({
-    success: true,
-    message: "student exempted successfully",
-  });
 });
 
 module.exports = router;
