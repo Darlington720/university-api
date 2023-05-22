@@ -53,6 +53,81 @@ router.get("/lectureTimetable", (req, res) => {
     });
 });
 
+router.get("/requirements/exam_tt", async (req, res) => {
+  // schools
+  const schools = await database.select("*").from("schools");
+
+  // const staff_members = await database.select("*").from("staff");
+
+  // study times
+  const study_times = await database.select("*").from("study_time");
+
+  // modules
+  const modules = await database.select("*").from("modules");
+
+  // sessions
+  const sessions = await database.select("*").from("exam_sessions");
+
+  //rooms
+  const rooms = await database.select("*").from("rooms");
+
+  // year - sem
+  const year_sem = await database.select("*").from("year_sem");
+
+  res.send({
+    success: true,
+    result: {
+      schools,
+      study_times,
+      modules,
+      sessions,
+      rooms,
+      year_sem,
+    },
+  });
+});
+
+router.get("/requirements/assign_inv", async (req, res) => {
+  //Staff
+  const staff_members = await database.select("*").from("staff");
+
+  //rooms
+  const rooms = await database.select("*").from("rooms");
+
+  // sessions
+  const sessions = await database.select("*").from("exam_sessions");
+
+  res.send({
+    success: true,
+    result: {
+      sessions,
+      rooms,
+      staff_members,
+    },
+  });
+});
+
+router.post("/examsInRoom", async (req, res) => {
+  const exams = await database
+    .select("course_unit_code", "course_unit_name")
+    .from("exam_timetable")
+    .where({
+      room_id: req.body.room.value,
+      session_id: req.body.session.value,
+      date:
+        new Date(req.body.date).getFullYear() +
+        "-" +
+        (new Date(req.body.date).getMonth() + 1) +
+        "-" +
+        new Date(req.body.date).getDate(),
+    });
+
+  res.send({
+    success: true,
+    result: exams,
+  });
+});
+
 router.post("/addExamTimetable", (req, res) => {
   const { headers, timetable } = req.body;
   // console.log("Data received", req.body);

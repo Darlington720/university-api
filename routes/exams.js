@@ -37,6 +37,30 @@ router.get("/student/:stdno", async (req, res) => {
     stu_no: stdno,
   });
 
+  payments.sort((a, b) => {
+    // Sort by 'study_yr' first
+    if (a.study_yr < b.study_yr) {
+      return -1;
+    }
+    if (a.study_yr > b.study_yr) {
+      return 1;
+    }
+
+    // If 'study_yr' is the same, sort by 'sem'
+    if (a.sem < b.sem) {
+      return -1;
+    }
+    if (a.sem > b.sem) {
+      return 1;
+    }
+
+    // If both 'study_yr' and 'sem' are equal, maintain the original order
+    return 0;
+  });
+
+  // Output the sorted array
+  // console.log(payments);
+
   // active payments - pick the current yr and sem
   if (payments.length > 0) {
     year = payments[payments.length - 1].study_yr;

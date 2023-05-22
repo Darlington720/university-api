@@ -261,26 +261,20 @@ router.post("/lecturerCourseunits/", (req, res) => {
 router.get("/image/:id", (req, res) => {
   const { id } = req.params;
   //console.log("Id", id);
-  console.log("Current directory", __dirname);
+  console.log(
+    "Current directory",
+    path.resolve(__dirname, "..", "public/assets")
+  );
+  const desination = path.resolve(__dirname, "..", "public/assets");
   // res.send("http://10.7.0.22:9000/assets/jacket.jpg");
 
-  fs.readFile(
-    __dirname + ".." + `/public/assets/${id.toUpperCase()}.jpg`,
-    (err, data) => {
-      if (err) {
-        res.sendFile(__dirname + `/public/assets/ph2.jpg`);
-      } else {
-        res.sendFile(
-          __dirname + ".." + `/public/assets/${id.toUpperCase()}.jpg`
-        );
-      }
+  fs.readFile(desination + `/${id.toUpperCase()}.jpg`, (err, data) => {
+    if (err) {
+      res.sendFile(desination + `/ph2.jpg`);
+    } else {
+      res.sendFile(desination + `/${id.toUpperCase()}.jpg`);
     }
-  );
-  // try {
-  //   res.sendFile(__dirname + `/public/assets/${id}.jpg`);
-  // } catch (error) {
-  //   res.sendFile(__dirname + `/public/assets/akampa.jpg`);
-  // }
+  });
 });
 
 router.get("/myAssignedRooms/:staff_id/:date", async (req, res) => {
@@ -484,127 +478,127 @@ router.get("/myAssignedRooms/:staff_id/:date", async (req, res) => {
   //     })
   //     .catch((err) => console.log("error ", err));
   // });
-
-  // router.get("/image/:id", (req, res) => {
-  //   const { id } = req.params;
-  //   //console.log("Id", id);
-  //   console.log("Current directory", __dirname);
-  //   // res.send("http://10.7.0.22:9000/assets/jacket.jpg");
-
-  //   try {
-  //     fs.readFile(
-  //       path.join(__dirname, "..", "public", "assets", `${id.toUpperCase()}.jpg`),
-  //       (err, data) => {
-  //         if (err) {
-  //           console.log("An identified error", err);
-  //           res.sendFile(
-  //             path.join(__dirname, "..", "public", "assets", `ph2.jpg`)
-  //           );
-  //         } else {
-  //           res.sendFile(
-  //             path.join(
-  //               __dirname,
-  //               "..",
-  //               "public",
-  //               "assets",
-  //               `${id.toUpperCase()}.jpg`
-  //             )
-  //           );
-  //         }
-  //       }
-  //     );
-  //   } catch (error) {
-  //     console.log("Error getting image ", error);
-  //   }
-
-  //   // try {
-  //   //   res.sendFile(__dirname + `/public/assets/${id}.jpg`);
-  //   // } catch (error) {
-  //   //   res.sendFile(__dirname + `/public/assets/akampa.jpg`);
-  //   // }
-  // });
-
-  // router.post("/addStaff", async (req, res) => {
-  //   const { staff_id, staff_name, title, role } = req.body;
-
-  //   const existingStaff = await database("staff")
-  //     .where({
-  //       staff_id,
-  //     })
-  //     .first();
-
-  //   if (existingStaff) {
-  //     return res.send({
-  //       success: false,
-  //       message: `Staff Member with id ${staff_id} already exists`,
-  //     });
-  //   }
-
-  //   database("staff")
-  //     .insert({
-  //       staff_id,
-  //       staff_name,
-  //       title: title.value,
-  //       role,
-  //     })
-  //     .then((result) => {
-  //       res.send({
-  //         success: true,
-  //         message: "Staff Member saved successfully",
-  //       });
-  //     })
-  //     .catch((err) => {
-  //       console.log("err adding new staff", err);
-  //     });
-  // });
-
-  // router.post("/assignStaffRole", async (req, res) => {
-  //   const { staff, school, role, campus } = req.body;
-
-  //   const existingStaff = await database("staff_assigned_roles")
-  //     .where({
-  //       staff_id: staff.value,
-  //     })
-  //     .first();
-
-  //   if (existingStaff) {
-  //     return res.send({
-  //       success: false,
-  //       message: `Staff Member with id ${staff.value} already has a role`,
-  //     });
-  //   }
-
-  //   database("staff_assigned_roles")
-  //     .insert({
-  //       staff_id: staff.value,
-  //       for_wc_sch: school.value,
-  //       role: role.value,
-  //       campus_id: campus.value,
-  //     })
-  //     .then((result) => {
-  //       res.send({
-  //         success: true,
-  //         message: "Staff member assigned to role successfully",
-  //       });
-  //     })
-  //     .catch((err) => {
-  //       console.log("err adding new staff", err);
-  //     });
-  // });
-
-  // router.get("/staff_assignment_reqs", async (req, res) => {
-  //   const staff = await database("staff").select("staff_id", "staff_name");
-  //   const roles = await database("staff_roles").select("*");
-  //   const schools = await database("schools").select("*");
-
-  //   res.send({
-  //     success: true,
-  //     result: {
-  //       staff,
-  //       roles,
-  //       schools,
-  //     },
-  //   });
 });
 
+// router.get("/image/:id", (req, res) => {
+//   const { id } = req.params;
+//   //console.log("Id", id);
+//   console.log("Current directory", __dirname);
+//   // res.send("http://10.7.0.22:9000/assets/jacket.jpg");
+
+//   try {
+//     fs.readFile(
+//       path.join(__dirname, "..", "public", "assets", `${id.toUpperCase()}.jpg`),
+//       (err, data) => {
+//         if (err) {
+//           console.log("An identified error", err);
+//           res.sendFile(
+//             path.join(__dirname, "..", "public", "assets", `ph2.jpg`)
+//           );
+//         } else {
+//           res.sendFile(
+//             path.join(
+//               __dirname,
+//               "..",
+//               "public",
+//               "assets",
+//               `${id.toUpperCase()}.jpg`
+//             )
+//           );
+//         }
+//       }
+//     );
+//   } catch (error) {
+//     console.log("Error getting image ", error);
+//   }
+
+//   // try {
+//   //   res.sendFile(__dirname + `/public/assets/${id}.jpg`);
+//   // } catch (error) {
+//   //   res.sendFile(__dirname + `/public/assets/akampa.jpg`);
+//   // }
+// });
+
+router.post("/addStaff", async (req, res) => {
+  const { staff_id, staff_name, title, role } = req.body;
+
+  const existingStaff = await database("staff")
+    .where({
+      staff_id,
+    })
+    .first();
+
+  if (existingStaff) {
+    return res.send({
+      success: false,
+      message: `Staff Member with id ${staff_id} already exists`,
+    });
+  }
+
+  database("staff")
+    .insert({
+      staff_id,
+      staff_name,
+      title: title.value,
+      role,
+    })
+    .then((result) => {
+      res.send({
+        success: true,
+        message: "Staff Member saved successfully",
+      });
+    })
+    .catch((err) => {
+      console.log("err adding new staff", err);
+    });
+});
+
+router.post("/assignStaffRole", async (req, res) => {
+  const { staff, school, role, campus } = req.body;
+
+  const existingStaff = await database("staff_assigned_roles")
+    .where({
+      staff_id: staff.value,
+    })
+    .first();
+
+  if (existingStaff) {
+    return res.send({
+      success: false,
+      message: `Staff Member with id ${staff.value} already has a role`,
+    });
+  }
+
+  database("staff_assigned_roles")
+    .insert({
+      staff_id: staff.value,
+      for_wc_sch: school.value,
+      role: role.value,
+      campus_id: campus.value,
+    })
+    .then((result) => {
+      res.send({
+        success: true,
+        message: "Staff member assigned to role successfully",
+      });
+    })
+    .catch((err) => {
+      console.log("err adding new staff", err);
+    });
+});
+
+router.get("/staff_assignment_reqs", async (req, res) => {
+  const staff = await database("staff").select("staff_id", "staff_name");
+  const roles = await database("staff_roles").select("*");
+  const schools = await database("schools").select("*");
+
+  res.send({
+    success: true,
+    result: {
+      staff,
+      roles,
+      schools,
+    },
+  });
+});
 module.exports = router;
