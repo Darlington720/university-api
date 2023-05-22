@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 const { database } = require("../config");
 
-<<<<<<< HEAD
 // Configure multer to store uploaded files in a desired location
 const storage = multer.diskStorage({
   destination: path.resolve(__dirname, "..", "upload/evidence"),
@@ -36,30 +35,6 @@ router.get("/student/:stdno", async (req, res) => {
     stu_no: stdno,
   });
 
-  payments.sort((a, b) => {
-    // Sort by 'study_yr' first
-    if (a.study_yr < b.study_yr) {
-      return -1;
-    }
-    if (a.study_yr > b.study_yr) {
-      return 1;
-    }
-
-    // If 'study_yr' is the same, sort by 'sem'
-    if (a.sem < b.sem) {
-      return -1;
-    }
-    if (a.sem > b.sem) {
-      return 1;
-    }
-
-    // If both 'study_yr' and 'sem' are equal, maintain the original order
-    return 0;
-  });
-
-  // Output the sorted array
-  // console.log(payments);
-
   // active payments - pick the current yr and sem
   if (payments.length > 0) {
     year = payments[payments.length - 1].study_yr;
@@ -85,27 +60,50 @@ router.get("/student/:stdno", async (req, res) => {
     )
     .andWhere("students_in_exam_room.stu_no", "=", stdno);
   // .groupBy("course_unit_code");
-=======
-router.post("/api/endRoomSession", (req, res) => {
-  const { lecturerId, roomId, assignedDate, sessionId } = req.body;
->>>>>>> parent of 9e76b2f... Updates and modifications to the exams module
 
-  const d = new Date(req.body.assigned_date);
-  const date = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
-  console.log("Room DATA", req.body);
-  const currentDate = new Date();
-  database
+  //exemptions
+  const studentExemptions = await database
     .select("*")
-    .from("invigilators")
-    .where({
-      room_id: req.body.room_id,
-      assigned_date: date,
-      session_id: req.body.session_id,
-      // lecturer_id: req.body.staff_id,
-    })
-    .update({
-      status: 2,
-      time_end: currentDate.toLocaleTimeString(),
+    .from("exemptions")
+    .where("stdno", "=", stdno);
+
+  if (!course_units_did_by_student[0]) {
+    return res.send({
+      success: true,
+      result: {
+        biodata: student[0],
+        payments,
+        study_yr: year,
+        current_sem: sem,
+        registration_status,
+        student_cus: studentExemptions,
+      },
+    });
+  }
+  const x = course_units_did_by_student.map(async (cu) => {
+    const booklets = await database
+      .select("*")
+      .from("student_registered_booklets")
+      .where({
+        stu_in_ex_room_id: cu.se_id,
+      });
+
+    return student_cus.push({ ...cu, booklets });
+  });
+
+  Promise.all(x)
+    .then(() => {
+      res.send({
+        success: true,
+        result: {
+          biodata: student[0],
+          payments,
+          study_yr: year,
+          current_sem: sem,
+          registration_status,
+          student_cus: [...student_cus, ...studentExemptions],
+        },
+      });
     })
     .then((data2) => {
       database

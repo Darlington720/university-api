@@ -258,7 +258,6 @@ router.post("/lecturerCourseunits/", (req, res) => {
   // res.send(newArr);
 });
 
-<<<<<<< HEAD
 router.get("/image/:id", (req, res) => {
   const { id } = req.params;
   //console.log("Id", id);
@@ -280,207 +279,357 @@ router.get("/image/:id", (req, res) => {
 
 router.get("/myAssignedRooms/:staff_id/:date", async (req, res) => {
   const { date, staff_id } = req.params;
-=======
-router.post("/getMyAssignedRooms", (req, res) => {
-  const { date, lecturer_id } = req.body;
->>>>>>> parent of 9e76b2f... Updates and modifications to the exams module
 
-  const d =
-    new Date(date).getFullYear() +
-    "-" +
-    (new Date(date).getMonth() + 1) +
-    "-" +
-    new Date(date).getDate();
+  router.post("/getMyAssignedRooms", (req, res) => {
+    const { date, lecturer_id } = req.body;
 
-  let newArr = [];
+    const d =
+      new Date(date).getFullYear() +
+      "-" +
+      (new Date(date).getMonth() + 1) +
+      "-" +
+      new Date(date).getDate();
 
-  console.log("Data got", req.body);
-  const dd = new Date("2022-11-24");
-  const current_date =
-    dd.getFullYear() + "-" + (dd.getMonth() + 1) + "-" + dd.getDate();
+    let newArr = [];
 
-  console.log("Today is ", current_date);
-  var m1 = moment(`${current_date} 7:00AM`, "YYYY-MM--DD h:mmA");
-  // var m1 = moment();
+    console.log("Data got", req.body);
+    const dd = new Date("2022-11-24");
+    const current_date =
+      dd.getFullYear() + "-" + (dd.getMonth() + 1) + "-" + dd.getDate();
 
-  var moment1 = moment(`${current_date}`, "YYYY-MM--DD");
-  // var moment1 = moment();
-  database
-    .select("*")
-    // .where({
-    //   assigned_date: date,
-    //   room_id: room,
-    //   session_id: session,
-    // })
-    .from("invigilators")
-    .join("staff", "invigilators.lecturer_id", "=", "staff.staff_id")
-    .join("rooms", "invigilators.room_id", "=", "rooms.room_id")
-    .join("exam_sessions", "invigilators.session_id", "=", "exam_sessions.s_id")
+    console.log("Today is ", current_date);
+    var m1 = moment(`${current_date} 7:00AM`, "YYYY-MM--DD h:mmA");
+    // var m1 = moment();
 
-    .where("invigilators.lecturer_id", "=", lecturer_id)
-    .andWhere("invigilators.assigned_date", "=", d)
-    // .andWhere("invigilators.session_id", "=", session)
-    // .join("exam_timetable", function () {
-    //   this.on("invigilators.assigned_date", "=", "exam_timetable.date")
-    //     .andOn("invigilators.room_id", "=", "exam_timetable.room_id")
-    //     .andOn("invigilators.session_id", "=", "exam_timetable.session_id");
-    // })
-    // .where(function () {
-    //   this.where("invigilators.assigned_date", "=", date)
-    //     .andWhere("invigilators.room_id", "=", room)
-    //     .andWhere("invigilators.session_id", "=", session);
-    // })
-    .then((invData) => {
-      invData.forEach((invigilatorData, index) => {
-        var m2 = moment(`${d} `, "YYYY-MM--DD h:mmA");
+    var moment1 = moment(`${current_date}`, "YYYY-MM--DD");
+    // var moment1 = moment();
+    database
+      .select("*")
+      // .where({
+      //   assigned_date: date,
+      //   room_id: room,
+      //   session_id: session,
+      // })
+      .from("invigilators")
+      .join("staff", "invigilators.lecturer_id", "=", "staff.staff_id")
+      .join("rooms", "invigilators.room_id", "=", "rooms.room_id")
+      .join(
+        "exam_sessions",
+        "invigilators.session_id",
+        "=",
+        "exam_sessions.s_id"
+      )
 
-        var moment2 = moment(`${d}`, "YYYY-MM--DD");
-        console.log(
-          "duration here",
-          moment.duration(moment2.diff(moment1))._data.days
-        );
+      .where("invigilators.lecturer_id", "=", lecturer_id)
+      .andWhere("invigilators.assigned_date", "=", d)
+      // .andWhere("invigilators.session_id", "=", session)
+      // .join("exam_timetable", function () {
+      //   this.on("invigilators.assigned_date", "=", "exam_timetable.date")
+      //     .andOn("invigilators.room_id", "=", "exam_timetable.room_id")
+      //     .andOn("invigilators.session_id", "=", "exam_timetable.session_id");
+      // })
+      // .where(function () {
+      //   this.where("invigilators.assigned_date", "=", date)
+      //     .andWhere("invigilators.room_id", "=", room)
+      //     .andWhere("invigilators.session_id", "=", session);
+      // })
+      .then((invData) => {
+        invData.forEach((invigilatorData, index) => {
+          var m2 = moment(`${d} `, "YYYY-MM--DD h:mmA");
 
-        if (moment.duration(moment2.diff(moment1))._data.days > 0) {
-          // console.log(moment.duration(moment2.diff(moment1))._data.days);
-          // console.log("Lecture is not supposed to be taught now");
-          newArr.push({ ...invigilatorData, inv_status: "not now" });
-          // console.log({ ...item, status: "not now" });
-        } else {
-          if (moment.duration(moment2.diff(moment1))._data.days == 0) {
-            newArr.push({ ...invigilatorData, inv_status: "on" });
-          } else if (m1.isBefore(m2)) {
-            // console.log({ ...item, status: "on" });
-            newArr.push({ ...invigilatorData, inv_status: "off" });
-            // console.log("Lecture is still on");
+          var moment2 = moment(`${d}`, "YYYY-MM--DD");
+          console.log(
+            "duration here",
+            moment.duration(moment2.diff(moment1))._data.days
+          );
+
+          if (moment.duration(moment2.diff(moment1))._data.days > 0) {
+            // console.log(moment.duration(moment2.diff(moment1))._data.days);
+            // console.log("Lecture is not supposed to be taught now");
+            newArr.push({ ...invigilatorData, inv_status: "not now" });
+            // console.log({ ...item, status: "not now" });
           } else {
-            // console.log({ ...item, status: "off" });
-            newArr.push({ ...invigilatorData, inv_status: "off" });
-            // console.log("Lecture is supposed to have ended");
+            if (moment.duration(moment2.diff(moment1))._data.days == 0) {
+              newArr.push({ ...invigilatorData, inv_status: "on" });
+            } else if (m1.isBefore(m2)) {
+              // console.log({ ...item, status: "on" });
+              newArr.push({ ...invigilatorData, inv_status: "off" });
+              // console.log("Lecture is still on");
+            } else {
+              // console.log({ ...item, status: "off" });
+              newArr.push({ ...invigilatorData, inv_status: "off" });
+              // console.log("Lecture is supposed to have ended");
+            }
+          }
+
+          // newArr.push(item);
+
+          // console.log({ ...item, ...data3[0] });
+
+          // console.log(item.c_unit_id, reqItem);
+        });
+
+        console.log("invData", newArr);
+
+        res.send(newArr);
+      })
+      .catch((err) => console.log("error ", err));
+  });
+
+  router.get("/image/:id", (req, res) => {
+    const { id } = req.params;
+    //console.log("Id", id);
+    console.log("Current directory", __dirname);
+    // res.send("http://10.7.0.22:9000/assets/jacket.jpg");
+
+    try {
+      fs.readFile(
+        path.join(
+          __dirname,
+          "..",
+          "public",
+          "assets",
+          `${id.toUpperCase()}.jpg`
+        ),
+        (err, data) => {
+          if (err) {
+            console.log("An identified error", err);
+            res.sendFile(
+              path.join(__dirname, "..", "public", "assets", `ph2.jpg`)
+            );
+          } else {
+            res.sendFile(
+              path.join(
+                __dirname,
+                "..",
+                "public",
+                "assets",
+                `${id.toUpperCase()}.jpg`
+              )
+            );
           }
         }
+      );
+    } catch (error) {
+      console.log("Error getting image ", error);
+    }
 
-        // newArr.push(item);
+    // try {
+    //   res.sendFile(__dirname + `/public/assets/${id}.jpg`);
+    // } catch (error) {
+    //   res.sendFile(__dirname + `/public/assets/akampa.jpg`);
+    // }
+  });
 
-        // console.log({ ...item, ...data3[0] });
+  router.post("/getMyAssignedRooms", (req, res) => {
+    const { date, lecturer_id } = req.body;
 
-        // console.log(item.c_unit_id, reqItem);
-      });
+    const d =
+      new Date(date).getFullYear() +
+      "-" +
+      (new Date(date).getMonth() + 1) +
+      "-" +
+      new Date(date).getDate();
 
-      console.log("invData", newArr);
+    let newArr = [];
 
-      res.send(newArr);
-    })
-    .catch((err) => console.log("error ", err));
-});
+    console.log("Data got", req.body);
+    const dd = new Date("2022-11-24");
+    const current_date =
+      dd.getFullYear() + "-" + (dd.getMonth() + 1) + "-" + dd.getDate();
 
-router.get("/image/:id", (req, res) => {
-  const { id } = req.params;
-  //console.log("Id", id);
-  console.log("Current directory", __dirname);
-  // res.send("http://10.7.0.22:9000/assets/jacket.jpg");
+    console.log("Today is ", current_date);
+    var m1 = moment(`${current_date} 7:00AM`, "YYYY-MM--DD h:mmA");
+    // var m1 = moment();
 
-  try {
-    fs.readFile(
-      path.join(__dirname, "..", "public", "assets", `${id.toUpperCase()}.jpg`),
-      (err, data) => {
-        if (err) {
-          console.log("An identified error", err);
-          res.sendFile(
-            path.join(__dirname, "..", "public", "assets", `ph2.jpg`)
+    var moment1 = moment(`${current_date}`, "YYYY-MM--DD");
+    // var moment1 = moment();
+    database
+      .select("*")
+      // .where({
+      //   assigned_date: date,
+      //   room_id: room,
+      //   session_id: session,
+      // })
+      .from("invigilators")
+      .join("staff", "invigilators.lecturer_id", "=", "staff.staff_id")
+      .join("rooms", "invigilators.room_id", "=", "rooms.room_id")
+      .join(
+        "exam_sessions",
+        "invigilators.session_id",
+        "=",
+        "exam_sessions.s_id"
+      )
+
+      .where("invigilators.lecturer_id", "=", lecturer_id)
+      .andWhere("invigilators.assigned_date", "=", d)
+      // .andWhere("invigilators.session_id", "=", session)
+      // .join("exam_timetable", function () {
+      //   this.on("invigilators.assigned_date", "=", "exam_timetable.date")
+      //     .andOn("invigilators.room_id", "=", "exam_timetable.room_id")
+      //     .andOn("invigilators.session_id", "=", "exam_timetable.session_id");
+      // })
+      // .where(function () {
+      //   this.where("invigilators.assigned_date", "=", date)
+      //     .andWhere("invigilators.room_id", "=", room)
+      //     .andWhere("invigilators.session_id", "=", session);
+      // })
+      .then((invData) => {
+        invData.forEach((invigilatorData, index) => {
+          var m2 = moment(`${d} `, "YYYY-MM--DD h:mmA");
+
+          var moment2 = moment(`${d}`, "YYYY-MM--DD");
+          console.log(
+            "duration here",
+            moment.duration(moment2.diff(moment1))._data.days
           );
-        } else {
-          res.sendFile(
-            path.join(
-              __dirname,
-              "..",
-              "public",
-              "assets",
-              `${id.toUpperCase()}.jpg`
-            )
-          );
+
+          if (moment.duration(moment2.diff(moment1))._data.days > 0) {
+            // console.log(moment.duration(moment2.diff(moment1))._data.days);
+            // console.log("Lecture is not supposed to be taught now");
+            newArr.push({ ...invigilatorData, inv_status: "not now" });
+            // console.log({ ...item, status: "not now" });
+          } else {
+            if (moment.duration(moment2.diff(moment1))._data.days == 0) {
+              newArr.push({ ...invigilatorData, inv_status: "on" });
+            } else if (m1.isBefore(m2)) {
+              // console.log({ ...item, status: "on" });
+              newArr.push({ ...invigilatorData, inv_status: "off" });
+              // console.log("Lecture is still on");
+            } else {
+              // console.log({ ...item, status: "off" });
+              newArr.push({ ...invigilatorData, inv_status: "off" });
+              // console.log("Lecture is supposed to have ended");
+            }
+          }
+
+          // newArr.push(item);
+
+          // console.log({ ...item, ...data3[0] });
+
+          // console.log(item.c_unit_id, reqItem);
+        });
+
+        console.log("invData", newArr);
+
+        res.send(newArr);
+      })
+      .catch((err) => console.log("error ", err));
+  });
+
+  router.get("/image/:id", (req, res) => {
+    const { id } = req.params;
+    //console.log("Id", id);
+    console.log("Current directory", __dirname);
+    // res.send("http://10.7.0.22:9000/assets/jacket.jpg");
+
+    try {
+      fs.readFile(
+        path.join(
+          __dirname,
+          "..",
+          "public",
+          "assets",
+          `${id.toUpperCase()}.jpg`
+        ),
+        (err, data) => {
+          if (err) {
+            console.log("An identified error", err);
+            res.sendFile(
+              path.join(__dirname, "..", "public", "assets", `ph2.jpg`)
+            );
+          } else {
+            res.sendFile(
+              path.join(
+                __dirname,
+                "..",
+                "public",
+                "assets",
+                `${id.toUpperCase()}.jpg`
+              )
+            );
+          }
         }
-      }
-    );
-  } catch (error) {
-    console.log("Error getting image ", error);
-  }
+      );
+    } catch (error) {
+      console.log("Error getting image ", error);
+    }
 
-  // try {
-  //   res.sendFile(__dirname + `/public/assets/${id}.jpg`);
-  // } catch (error) {
-  //   res.sendFile(__dirname + `/public/assets/akampa.jpg`);
-  // }
-});
+    // try {
+    //   res.sendFile(__dirname + `/public/assets/${id}.jpg`);
+    // } catch (error) {
+    //   res.sendFile(__dirname + `/public/assets/akampa.jpg`);
+    // }
+  });
 
-router.post("/addStaff", async (req, res) => {
-  const { staff_id, staff_name, title, role } = req.body;
+  router.post("/addStaff", async (req, res) => {
+    const { staff_id, staff_name, title, role } = req.body;
 
-  const existingStaff = await database("staff")
-    .where({
-      staff_id,
-    })
-    .first();
+    const existingStaff = await database("staff")
+      .where({
+        staff_id,
+      })
+      .first();
 
-  if (existingStaff) {
-    return res.send({
-      success: false,
-      message: `Staff Member with id ${staff_id} already exists`,
-    });
-  }
-
-  database("staff")
-    .insert({
-      staff_id,
-      staff_name,
-      title: title.value,
-      role,
-    })
-    .then((result) => {
-      res.send({
-        success: true,
-        message: "Staff Member saved successfully",
+    if (existingStaff) {
+      return res.send({
+        success: false,
+        message: `Staff Member with id ${staff_id} already exists`,
       });
-    })
-    .catch((err) => {
-      console.log("err adding new staff", err);
-    });
-});
+    }
 
-router.post("/assignStaffRole", async (req, res) => {
-  const { staff, school, role, campus } = req.body;
-
-  const existingStaff = await database("staff_assigned_roles")
-    .where({
-      staff_id: staff.value,
-    })
-    .first();
-
-  if (existingStaff) {
-    return res.send({
-      success: false,
-      message: `Staff Member with id ${staff.value} already has a role`,
-    });
-  }
-
-  database("staff_assigned_roles")
-    .insert({
-      staff_id: staff.value,
-      for_wc_sch: school.value,
-      role: role.value,
-      campus_id: campus.value,
-    })
-    .then((result) => {
-      res.send({
-        success: true,
-        message: "Staff member assigned to role successfully",
+    database("staff")
+      .insert({
+        staff_id,
+        staff_name,
+        title: title.value,
+        role,
+      })
+      .then((result) => {
+        res.send({
+          success: true,
+          message: "Staff Member saved successfully",
+        });
+      })
+      .catch((err) => {
+        console.log("err adding new staff", err);
       });
-    })
-    .catch((err) => {
-      console.log("err adding new staff", err);
-    });
-});
+  });
 
-<<<<<<< HEAD
+  router.post("/assignStaffRole", async (req, res) => {
+    const { staff, school, role, campus } = req.body;
+
+    const existingStaff = await database("staff_assigned_roles")
+      .where({
+        staff_id: staff.value,
+      })
+      .first();
+
+    if (existingStaff) {
+      return res.send({
+        success: false,
+        message: `Staff Member with id ${staff.value} already has a role`,
+      });
+    }
+
+    database("staff_assigned_roles")
+      .insert({
+        staff_id: staff.value,
+        for_wc_sch: school.value,
+        role: role.value,
+        campus_id: campus.value,
+      })
+      .then((result) => {
+        res.send({
+          success: true,
+          message: "Staff member assigned to role successfully",
+        });
+      })
+      .catch((err) => {
+        console.log("err adding new staff", err);
+      });
+  });
+
   //   const d =
   //     new Date(date).getFullYear() +
   //     "-" +
@@ -675,35 +824,36 @@ router.post("/assignStaffRole", async (req, res) => {
     .catch((err) => {
       console.log("err adding new staff", err);
     });
-=======
-router.get("/staff_assignment_reqs", async (req, res) => {
-  const staff = await database("staff").select("staff_id", "staff_name");
-  const roles = await database("staff_roles").select("*");
-  const schools = await database("schools").select("*");
 
-  res.send({
-    success: true,
-    result: {
-      staff,
-      roles,
-      schools,
-    },
+  router.get("/staff_assignment_reqs", async (req, res) => {
+    const staff = await database("staff").select("staff_id", "staff_name");
+    const roles = await database("staff_roles").select("*");
+    const schools = await database("schools").select("*");
+
+    res.send({
+      success: true,
+      result: {
+        staff,
+        roles,
+        schools,
+      },
+    });
   });
->>>>>>> parent of 9e76b2f... Updates and modifications to the exams module
+
+  router.get("/staff_assignment_reqs", async (req, res) => {
+    const staff = await database("staff").select("staff_id", "staff_name");
+    const roles = await database("staff_roles").select("*");
+    const schools = await database("schools").select("*");
+
+    res.send({
+      success: true,
+      result: {
+        staff,
+        roles,
+        schools,
+      },
+    });
+  });
 });
 
-router.get("/staff_assignment_reqs", async (req, res) => {
-  const staff = await database("staff").select("staff_id", "staff_name");
-  const roles = await database("staff_roles").select("*");
-  const schools = await database("schools").select("*");
-
-  res.send({
-    success: true,
-    result: {
-      staff,
-      roles,
-      schools,
-    },
-  });
-});
 module.exports = router;
